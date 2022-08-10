@@ -1,0 +1,220 @@
+---
+title: "Analysis: Codes"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed data and analyzes the data about different codes. It is broken down into the following sections:
+
+* Data Wrangling for this analysis
+* Stacked Barplot for All Questions
+
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* extrafont: for changing ggplot fonts
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(tidyverse)
+library(extrafont)
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+theme_update(plot.title = element_text(hjust = 0.5))
+
+#load fonts
+extrafont::loadfonts(device = "win")
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "full_processed.rds")
+
+#load data
+code_data_raw <- readRDS(data_location)
+
+```
+
+---
+
+## Data Wrangling
+```{r data wrangling}
+
+#only include relevant variables
+code_data <- code_data_raw %>%
+                  dplyr::select(c(FireType,
+                                  FireAnswer,
+                                  CAType,
+                                  CAAnswer,
+                                  PedsType,
+                                  PedsAnswer,
+                                  BombType,
+                                  BombAnswer,
+                                  ViolenceType,
+                                  ViolenceAnswer,
+                                  ASType,
+                                  ASAnswer,
+                                  InfantType,
+                                  InfantAnswer,
+                                  MCIType,
+                                  MCIAnswer,
+                                  IDType,
+                                  IDAnswer,
+                                  HazMatType,
+                                  HazMatAnswer,
+                                  MAType,
+                                  MAAnswer,
+                                  SWType,
+                                  SWAnswer,
+                                  MCType,
+                                  MCAnswer,
+                                  HSType,
+                                  HSAnswer))
+
+#convert to long format
+code_data_long <- code_data %>%
+                    tidyr::gather(question, answer, FireType:HSAnswer, factor_key = TRUE)
+
+#create a hazard column
+code_data_long$hazard <- code_data_long$question
+
+#remove "answer" from hazard column
+code_data_long$hazard <- gsub("Answer", "", code_data_long$hazard)
+
+#remove "type" from hazard column
+code_data_long$hazard <- gsub("Type", "", code_data_long$hazard)
+
+#remove hazards from question column
+code_data_long$question <- gsub("Fire", "", code_data_long$question)
+code_data_long$question <- gsub("CA", "", code_data_long$question)
+code_data_long$question <- gsub("Peds", "", code_data_long$question)
+code_data_long$question <- gsub("Bomb", "", code_data_long$question)
+code_data_long$question <- gsub("Violence", "", code_data_long$question)
+code_data_long$question <- gsub("AS", "", code_data_long$question)
+code_data_long$question <- gsub("Infant", "", code_data_long$question)
+code_data_long$question <- gsub("MCI", "", code_data_long$question)
+code_data_long$question <- gsub("ID", "", code_data_long$question)
+code_data_long$question <- gsub("HazMat", "", code_data_long$question)
+code_data_long$question <- gsub("MA", "", code_data_long$question)
+code_data_long$question <- gsub("SW", "", code_data_long$question)
+code_data_long$question <- gsub("MC", "", code_data_long$question)
+code_data_long$question <- gsub("HS", "", code_data_long$question)
+
+#rearrange columns
+code_data_long <- dplyr::select(code_data_long, c(hazard,
+                                                  question,
+                                                  answer))
+
+#fix value of MC "Answer"
+code_data_long$question <- gsub("Mnswer", "Answer", code_data_long$question)
+
+#convert answer to factor class
+code_data_long$answer <- factor(code_data_long$answer)
+
+#relabel hazards
+code_data_long$hazard[code_data_long$hazard == "CA"] <- "Cardiac Arrest"
+code_data_long$hazard[code_data_long$hazard == "Peds"] <- "Pediatric Emergency"
+code_data_long$hazard[code_data_long$hazard == "Bomb"] <- "Bomb Threat"
+code_data_long$hazard[code_data_long$hazard == "AS"] <- "Active Shooter"
+code_data_long$hazard[code_data_long$hazard == "Infant"] <- "Infant Abduction"
+code_data_long$hazard[code_data_long$hazard == "MCI"] <- "Mass Casualty"
+code_data_long$hazard[code_data_long$hazard == "ID"] <- "Internal Disaster"
+code_data_long$hazard[code_data_long$hazard == "HazMat"] <- "Hazardous Materials"
+code_data_long$hazard[code_data_long$hazard == "MA"] <- "Missing Adult"
+code_data_long$hazard[code_data_long$hazard == "SW"] <- "Severe Weather"
+code_data_long$hazard[code_data_long$hazard == "MC"] <- "Missing Child"
+code_data_long$hazard[code_data_long$hazard == "HS"] <- "Hostage Situation"
+```
+
+---
+
+## Stacked Barplot for All Questions
+```{r stacked barplot all}
+stacked_all <- code_data_long %>%
+                  dplyr::filter(question == "Answer") %>%
+                  dplyr::count(hazard, answer) %>%
+                  dplyr::group_by(hazard) %>%
+                  dplyr::mutate(pct = prop.table(n) * 100) %>%
+                  ggplot2::ggplot(aes(x = factor(hazard, levels = hazard[answer == "0"][order(pct[answer == "0"])]), 
+                                      y = pct, 
+                                      fill = answer,
+                                      color = answer)) +
+                           geom_bar(stat = "identity") +
+                           geom_text(aes(label = paste0(sprintf("%1.1f", pct), "%")),
+                                     position = position_stack(vjust = 0.5),
+                                     size = 3,
+                                     color = "white",
+                                     fontface = "bold") +
+                           scale_fill_manual(values = c("#BC3C29FF", "#6F99ADFF"),
+                                             labels = c("Incorrect", "Correct"),
+                                             name = "") +
+                           scale_color_manual(values = c("#7D281B", "#4A6673")) +
+                           scale_y_continuous(limits = c(0,100),
+                                              expand = c(0,0)) +
+                           labs(x = " ",
+                                y = "Percent of Responses") +
+                           theme(text = element_text(family = "Palatino Linotype"),
+                                 axis.text = element_text(color = "black"),
+                                 axis.text.x = element_text(angle = 90,
+                                                            vjust = 0.5,
+                                                            hjust = 1)) +
+                           guides(color = FALSE)
+stacked_all
+
+#save file
+stacked_all_fig_file = here("results", "codes", "stacked_all_codes.png")
+ggsave(filename = stacked_all_fig_file, 
+       plot = stacked_all,
+       width = 8, height = 4.5, dpi = 300)
+```
+
+---
+
+## Accuracy by Hazard
+```{r hazard accuracy}
+hazard_accuracy <- code_data_long %>%
+                      dplyr::count(hazard, question, answer) %>%
+                      dplyr::group_by(hazard, question) %>%
+                      dplyr::mutate(pct = prop.table(n) * 100) %>%
+                      ggplot2::ggplot(aes(x = question, y = pct, fill = answer))+
+                               geom_bar(stat = "identity") +
+                               facet_wrap(~ hazard) +
+
+                               geom_text(aes(label = paste0(sprintf("%1.1f", pct), "%")),
+                                     position = position_stack(vjust = 0.5),
+                                     size = 3,
+                                     color = "white",
+                                     fontface = "bold") +
+                               scale_fill_manual(values = c("#BC3C29FF", "#6F99ADFF"),
+                                                 labels = c("Incorrect", "Correct"),
+                                                 name = "") +
+                               coord_flip() +
+                               labs(x = "",
+                                    y = "Percent of Responses") 
+hazard_accuracy
+```

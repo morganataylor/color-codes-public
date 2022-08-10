@@ -1,0 +1,1561 @@
+---
+title: "Analysis: Pre/Post Test"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed data and analyzes the pre/post data. It is broken down into the following sections
+
+* Confidence Results
+  + Pre-Survey
+  + Post-Survey
+* Overall Paired T-test
+* Scores by Participant Characteristics
+  + Facility-Label
+  + Clinical-Non
+  + Healthcare-Years
+  + Facility-Years
+  + Facilities-Number
+  + Shift-Type
+  + EC-YN
+  + Facilities-different-codes
+* Scores by Code Opinions
+  + PL-codes
+  + Code-exceptions
+  + Training-Orientation
+  + Training-Yearly
+  + Training-Exercise
+  + Training-OtherCat
+  + Training-last-time
+  + Code-confusion
+
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* effsize: for cohen's d effect size determination
+* rstatix: for pairwise comparisons
+* ggpubr: for making box plots (potentially)
+* extrafont: for changing ggplot fonts
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(effsize)
+library(rio)
+library(tidyverse)
+library(ggplot2)
+library(rstatix)
+library(ggpubr)
+library(extrafont) #for changing ggplot fonts
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+theme_update(plot.title = element_text(hjust = 0.5))
+
+#load fonts
+loadfonts(device = "win")
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "combined_processed.rds")
+
+#load data
+data_1 <- readRDS(data_location)
+```
+
+---
+
+## Fix Data Cleaning
+Remove the observations with 0 facilities
+```{r cleaning fix}
+data <- subset(data_1,
+                     data_1$`Facilities-Number` != 0)
+```
+
+## Confidence Results
+First, let's compare the distributions of the pre-survey and post-survey confidence scores.
+
+<br>
+
+### Pre-Survey
+```{r presurvey}
+#summary statistics
+base::summary(data$`Pre-Confidence`)
+sd(data$`Pre-Confidence`)
+
+# Density + Histogram
+pre_plot <- data %>% 
+              ggplot(aes(x = `Pre-Confidence`)) +
+              geom_histogram(aes(y = ..density..), 
+                             binwidth = 1, 
+                             alpha = 0.35,
+                             fill = "#999999") +
+              geom_density() + 
+              geom_vline(xintercept = mean(data$`Pre-Confidence`, na.rm=T), 
+                         linetype = 2) + 
+              annotate("text", x = mean(data$`Pre-Confidence`, na.rm=T), 
+                               y = 0, 
+                               label = " mean", 
+                               vjust = -1, 
+                               hjust = 0) +
+              scale_x_continuous(breaks = seq(1, 7, by = 1)) + 
+              coord_cartesian(xlim = c(0,8)) +
+              labs(y = "Density", 
+                   x = "Confidence Score", 
+                   title="Pre-Survey Confidence Score Distribution")
+
+pre_plot
+
+#save plot
+pre_conf_plot = here::here("results", "prepost", "pre_conf_plot.png")
+ggsave(filename = pre_conf_plot, 
+       plot = pre_plot,
+       dpi = 300)
+```
+
+<br>
+
+### Post-Survey
+```{r postsurvey}
+#summary statistics
+base::summary(data$`Post-Confidence`)
+sd(data$`Post-Confidence`)
+
+# Density + Histogram
+post_plot <- data %>% 
+              ggplot(aes(x = `Post-Confidence`)) +
+              geom_histogram(aes(y = ..density..), 
+                             binwidth = 1, 
+                             alpha = 0.5,
+                             fill = "#009E73") +
+              geom_density() + 
+              geom_vline(xintercept = mean(data$`Post-Confidence`, na.rm=T), 
+                         linetype = 2) + 
+              annotate("text", x = mean(data$`Post-Confidence`, na.rm=T), 
+                               y = 0, 
+                               label = " mean", 
+                               vjust = -1, 
+                               hjust = 0) +
+              scale_x_continuous(breaks = seq(1, 7, by = 1)) + 
+              coord_cartesian(xlim = c(0,8)) +
+              labs(y = "", 
+                   x = "Confidence Score", 
+                   title="Post-Survey Confidence Score Distribution")
+
+post_plot
+
+#save plot
+post_conf_plot = here::here("results", "prepost", "post_conf_plot.png")
+ggsave(filename = post_conf_plot, 
+       plot = post_plot,
+       dpi = 300)
+```
+
+### Compare on Same Plot
+```{r same plot}
+#first rearrange columns to put pre and post next to each other
+data_1 <- data %>%
+                dplyr::select(`Facility-Label`:`Shift-Type`,
+                              `Fire-Type`:`Code-confusion`,
+                              `Pre-Confidence`,
+                              `Post-Confidence`)
+
+#convert to long format in order to be able to plot all three outcomes with the same variable
+data_1_long <- tidyr::gather(data_1, TestCat, score, `Pre-Confidence`:`Post-Confidence`, factor_key = TRUE)
+
+#change labels
+levels(data_1_long$TestCat) <- c("Pre-Survey", "Post-Survey")
+
+#make df for mean scores
+data_2_long <- data_1_long %>%
+                  dplyr::group_by(TestCat) %>%
+                  dplyr::summarise(Mean.score = mean(score))
+
+#add label column to data_2_long
+data_2_long$ScoreAvg <- sub("^", "Mean = ", round(data_2_long$Mean.score, digits = 2))
+
+#plot density curves on same plot
+base_plot <- ggplot2::ggplot(data = data_1_long, aes(x = score)) +
+                      geom_density(aes(fill = TestCat,
+                                       alpha = TestCat)) +
+                         scale_fill_manual(values = c("#6F99ADFF", "#BC3C29FF")) +
+                         scale_alpha_manual(values = c(1, 0.5)) +
+                         scale_x_continuous(breaks = seq(1, 7, by = 1)) +
+                         theme(legend.title = element_blank()) +
+                         labs(y = "Density",
+                              x = "Confidence Score")
+base_plot
+
+#add the mean line separately so that it can be adjusted later with other variables
+both_plot <- base_plot + geom_vline(data = data_2_long, 
+                                    mapping = aes(xintercept = Mean.score,
+                                                  linetype = TestCat)) +
+                         geom_text(data = data_2_long,
+                                   aes(x = Mean.score, y = 0.32, label = ScoreAvg),
+                                   hjust = 1.05) +
+                         labs(title = "Confidence Score Distribution")
+
+both_plot
+
+#save plot
+both_conf_plot = here::here("results", "prepost", "both_conf_plot.png")
+ggsave(filename = both_conf_plot, 
+       plot = both_plot,
+       dpi = 300)
+
+
+both_plot2 <- data_1_long %>% 
+                ggplot(aes(x = score)) +
+                geom_histogram(aes(y = ..count..,
+                                   fill = TestCat,
+                                   colour = TestCat), 
+                               binwidth = 1,
+                               alpha = 0.85) +
+                facet_wrap(~ TestCat) +
+                scale_fill_manual(values = c("#6F99ADFF", "#BC3C29FF")) +
+                scale_color_manual(values = c("#4A6673", "#7D281B")) +
+                scale_x_continuous(breaks = seq(1, 7, by = 1)) + 
+                scale_y_continuous(expand = c(0,0),
+                                   limits = c(0, 90)) +
+                coord_cartesian(xlim = c(0.5, 7.5)) +
+                labs(y = "Number of Participants", 
+                     x = "Confidence Score") +
+                theme(strip.text.x = element_text(face = "bold"),
+                      legend.title = element_blank(),
+                      text = element_text(family = "Palatino Linotype"),
+                      axis.text = element_text(color = "black")) +
+                geom_vline(data = data_2_long,
+                           mapping = aes(xintercept = Mean.score,
+                                         linetype = TestCat)) +
+                geom_text(data = data_2_long,
+                          aes(x = Mean.score, y = 86, label = ScoreAvg),
+                          hjust = 1.05,
+                          family = "Palatino Linotype")
+both_plot2
+
+#save plot
+both_conf_plot2 = here::here("results", "prepost", "both_conf_plot_hist.png")
+ggsave(filename = both_conf_plot2, 
+       plot = both_plot2,
+       dpi = 300)
+
+
+both_plot3 <- data_1_long %>%
+                ggplot2::ggplot(aes(x = score)) +
+                         geom_density(aes(fill = TestCat)) +
+                         facet_wrap(~ TestCat) +
+                         scale_fill_manual(values = c("#6F99ADFF", "#BC3C29FF")) +
+                         scale_alpha_manual(values = c(1, 0.5)) +
+                         scale_x_continuous(breaks = seq(1, 7, by = 1)) +
+                         scale_y_continuous(expand = c(0,0),
+                                            limits = c(0, 0.35)) +
+                         coord_cartesian(xlim = c(0.5, 7.5),
+                                         expand = FALSE) +
+                         theme(legend.title = element_blank()) +
+                         theme(strip.text.x = element_text(face = "bold")) +
+                         labs(y = "Density",
+                              x = "Confidence Score") +
+                         geom_vline(data = data_2_long, 
+                                    mapping = aes(xintercept = Mean.score,
+                                                  linetype = TestCat)) +
+                         geom_text(data = data_2_long,
+                                   aes(x = Mean.score, y = .32, label = ScoreAvg),
+                                   hjust = 1.05)
+both_plot3
+
+#save plot
+both_conf_plot3 = here::here("results", "prepost", "both_conf_plot_dist.png")
+ggsave(filename = both_conf_plot3, 
+       plot = both_plot3,
+       dpi = 300)
+```
+
+---
+
+## Paired Student's T-Test
+The Paired Student's T-Test will tell us if there is a significant difference between the pre/post survey confidence scores, and the Cohen's D metric determines the effect size.
+```{r ttest}
+#two-sided paired t-test
+stats::t.test(data$`Pre-Confidence`, data$`Post-Confidence`, paired = T)
+
+#determine effect size (Cohen's D)
+effsize::cohen.d(data$`Post-Confidence`, data$`Pre-Confidence`, paired = T, na.rm = T)
+
+#assumptions check:
+#1. the differences are independently distributed
+#we know this is true because data are not clustered, time-series, or spatial
+
+#2. the differences are normally distributed
+#we can check this with a histogram of the differences
+
+#compute the mean difference and assign it to a variable
+mean_diff <- mean(data$`Post-Confidence`-data$`Pre-Confidence`)
+
+#make df for mean scores
+data_2_long <- data_1_long %>%
+                  dplyr::group_by(TestCat) %>%
+                  dplyr::summarise(Mean.score = mean(score))
+
+#convert mean_diff to a dataframe
+mean_diff <- as.data.frame(mean_diff)
+
+#add label column
+mean_diff$lbl <- sub("^", "Mean = ", round(mean_diff$mean_diff, digits = 3))
+
+diff_plot <- data %>%
+              ggplot2::ggplot(aes(x = `Post-Confidence`-`Pre-Confidence`)) +
+                       geom_histogram(aes(y = ..count..),
+                                      binwidth = 1,
+                                      alpha = .8,
+                                      fill = "#7876B1FF",
+                                      colour = "#504e76") +
+                       scale_x_continuous(breaks = seq(-5, 5, by = 1)) +
+                       coord_cartesian(xlim = c(-5,5)) +
+                       scale_y_continuous(expand = c(0,0),
+                                          limits = c(0, 130)) +
+                       labs(y = "Number of Participants",
+                            x = "Change in Confidence Score (Post - Pre)") +
+                       geom_vline(data = mean_diff,
+                                  mapping = aes(xintercept = mean_diff),
+                                  linetype = 2) +
+                       geom_text(data = mean_diff,
+                                   aes(x = mean_diff, y = 105, label = lbl),
+                                   hjust = 1.05,
+                                   family = "Palatino Linotype") +
+                       theme(axis.text = element_text(color = "black"),
+                             text = element_text(family = "Palatino Linotype"))
+diff_plot
+
+#save plot
+diff_conf_plot = here::here("results", "prepost", "diff_conf_plot.png")
+ggsave(filename = diff_conf_plot, 
+       plot = diff_plot,
+       dpi = 300)
+
+#central limit theorem says that even if the data are not normally distributed, the sample mean will be approximately normally distributed
+#the paired t-test is robust to violations of the assumption of normality
+#therefore, regardless, the paired t-test can proceed if n > 30
+```
+
+Mean of the differences = 0.868 reduction in confidence score (95% CI of the change = 0.737, 0.999)
+
+Conclusion: For this sample of 304 participants, completing the survey resulted in a decrease in confidence of code knowledge (t = 13.005; df = 303, p < 0.001) by 0.868 points (95% CI: 0.737, 0.999). 
+
+Cohen's d suggests the pre/post groups differ by -0.605 standard deviations, which is a "medium" effect (i.e. probably big enough to discern with the naked eye but not guaranteed).
+
+---
+
+## Scores by Participant Characteristics
+We want to know if the distribution of confidence scores varies (significantly) by any of the participant characteristics. The following variables will be analyzed:
+
+* Facility-Label
+* Clinical-Non
+* Healthcare-Years
+* Facility-Years
+* Facilities-Number
+* Shift-Type
+* EC-YN
+* Facilities-different-codes
+
+<br>
+
+The following steps will be followed for each variable:
+
+1. Visualization: Pre/Post Density Plot
+2. Pairwise t-test (with a bonferroni correction)
+3. Visualization: Box Plot with p-values
+
+<br>
+
+The density plot visualization will just build off of the `base_plot` developed above.
+
+<br>
+
+To make the pairwise comparisons easier, we can add a variable that is the difference between the post-survey and pre-survey confidence scores (`Delta = Post - Pre`).
+```{r delta variable}
+#create a shadow df
+data_pairwise <- data_1
+
+#create "delta" variable
+data_pairwise$delta <- data_pairwise$`Post-Confidence`-data_pairwise$`Pre-Confidence`
+
+#remove dash in column names
+names(data_pairwise) <- gsub("-", "", names(data_pairwise))
+```
+
+<br>
+
+---
+
+### Facility-Label
+
+1. Density plot of pre- and post-survey confidence scores
+```{r facility label}
+#create a named character vector for facility labels
+facility_labels <- c(`A` = "Facility A",
+                     `B` = "Facility B",
+                     `C` = "Facility C",
+                     `D` = "Facility D",
+                     `E` = "Facility E")
+
+#make a df for mean scores by facility
+data_long_facility <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Facility-Label`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for facility and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+facility_plot <- base_plot + ggplot2::facet_wrap(. ~ `Facility-Label`,
+                                                 labeller = as_labeller(facility_labels),
+                                                 nrow = 1) +
+                                      theme(strip.text.x = element_text(face = "bold")) +
+                                      geom_vline(data = data_long_facility,
+                                                 mapping = aes(xintercept = Mean.score,
+                                                               linetype = TestCat))
+
+facility_plot
+
+#save plot with wider dimensions
+facility_conf_plot = here::here("results", "prepost", "facility_conf_plot.png")
+ggsave(filename = facility_conf_plot, 
+       plot = facility_plot,
+       width = 12, height = 6, dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by facility
+```{r pairwise facility}
+#summary statistics
+facility_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(FacilityLabel) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+facility_sum_stats
+
+#compare mean of facilities using ANOVA
+facilityaov <- data_pairwise %>% rstatix::anova_test(delta ~ FacilityLabel)
+facilityaov
+
+#pairwise comparison by facility 
+pwcfacility <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ FacilityLabel, p.adjust.method = "bonferroni")
+pwcfacility
+
+```
+
+The overall Facility "effect" is not significant. While there is a significant difference between facilities B and C, it is no longer significant after a Bonferroni correction.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r facility boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_facility_plot <- ggpubr::ggboxplot(data_pairwise, x = "FacilityLabel", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcfacility,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Facility",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(facilityaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcfacility))
+pwc_facility_plot
+
+#save plot with wider dimensions
+pwcfacility_plot = here::here("results", "prepost", "pwc_facility_plot.png")
+ggsave(filename = pwcfacility_plot, 
+       plot = pwc_facility_plot,
+       dpi = 300)
+```
+
+---
+
+### Clinical-Non
+1. Density plot of pre- and post-survey confidence scores
+```{r clinical}
+#make a df for mean scores by role type
+data_long_clinical <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Clinical-Non`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for clinical and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+clinical_plot <- base_plot + ggplot2::facet_wrap(. ~ `Clinical-Non`) +
+                                      theme(strip.text.x = element_text(face = "bold")) +
+                                      geom_vline(data = data_long_clinical,
+                                                 mapping = aes(xintercept = Mean.score,
+                                                               linetype = TestCat))
+
+clinical_plot
+
+#save plot
+clinical_conf_plot = here::here("results", "prepost", "clinical_conf_plot.png")
+ggsave(filename = clinical_conf_plot, 
+       plot = clinical_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by Role Type
+```{r pairwise clinical}
+#summary statistics
+clinical_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(ClinicalNon) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+clinical_sum_stats
+
+#compare mean of clinical role using ANOVA
+clinicalaov <- data_pairwise %>% rstatix::anova_test(delta ~ ClinicalNon)
+clinicalaov
+
+#pairwise comparison by role 
+pwcclinical <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ ClinicalNon, p.adjust.method = "bonferroni")
+pwcclinical
+
+```
+
+Clinical vs. Non-Clinical is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r clinical boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_clinical_plot <- ggpubr::ggboxplot(data_pairwise, x = "ClinicalNon", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcclinical,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Role Type",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(clinicalaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcclinical))
+pwc_clinical_plot
+
+#save plot
+pwcclinical_plot = here::here("results", "prepost", "pwc_clinical_plot.png")
+
+ggsave(filename = pwcclinical_plot, 
+       plot = pwc_clinical_plot,
+       dpi = 300)
+```
+
+---
+
+### Healthcare-Years
+
+1. Density plot of pre- and post-survey confidence scores
+```{r healthcare label}
+#make a df for mean scores by years in healthcare
+data_long_healthcare <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Healthcare-Years`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#reorder the levels of healthcare-years using relevel
+#replicate data
+data_1_long_hc <- data_1_long
+
+#reorder group factor levels
+data_1_long_hc$`Healthcare-Years` <- factor(data_1_long_hc$`Healthcare-Years`,
+                                            levels = c("0-2 years", "2-5 years", "5-8 years", "> 8 years"))
+data_long_healthcare$`Healthcare-Years` <- factor(data_long_healthcare$`Healthcare-Years`,
+                                                  levels = c("0-2 years", "2-5 years", "5-8 years", "> 8 years"))
+
+
+#we have to re-do the whole plot in order to reorder the healthcare years category
+#linetype for the mean confidence score varies by pre/post survey
+healthcare_plot <- ggplot2::ggplot(data = data_1_long_hc, aes(x = score)) +
+                            geom_density(aes(fill = TestCat,
+                                             alpha = TestCat)) +
+                            scale_fill_manual(values = c("#999999", "#009E73")) +
+                            scale_alpha_manual(values = c(1, 0.5)) +
+                            scale_x_continuous(breaks = seq(1, 7, by = 1)) +
+                            facet_wrap(. ~ `Healthcare-Years`) +
+                            geom_vline(data = data_long_healthcare,
+                                       mapping = aes(xintercept = Mean.score,
+                                                     linetype = TestCat)) +
+                            theme(legend.title = element_blank(),
+                                  strip.text.x = element_text(face = "bold")) +
+                            labs(y = "Density",
+                                 x = "Confidence Score")
+healthcare_plot
+
+#save plot
+healthcare_conf_plot = here::here("results", "prepost", "healthcare_conf_plot.png")
+ggsave(filename = healthcare_conf_plot, 
+       plot = healthcare_plot,
+       width = 12, height = 6, dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by Years in Healthcare
+```{r pairwise healthcare}
+#summary statistics
+healthcare_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(HealthcareYears) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+healthcare_sum_stats
+
+#compare mean of healthcare years using ANOVA
+healthcareaov <- data_pairwise %>% rstatix::anova_test(delta ~ HealthcareYears)
+healthcareaov
+
+#pairwise comparison by healthcare 
+pwchealthcare <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ HealthcareYears, p.adjust.method = "bonferroni")
+pwchealthcare
+
+```
+
+Years in Healthcare is not significant in size of change in confidence scores.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r healthcare boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_healthcare_plot <- ggpubr::ggboxplot(data_pairwise, x = "HealthcareYears", y = "delta") +
+                       ggpubr::stat_pvalue_manual(pwchealthcare,
+                                                  hide.ns = TRUE,
+                                                  label = "p.adj",
+                                                  y.position = 0.15,
+                                                  step.increase = 0.2) +
+                             labs(x = "Years in Healthcare",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(healthcareaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwchealthcare))
+pwc_healthcare_plot
+
+#save plot
+pwchealthcare_plot = here::here("results", "prepost", "pwc_healthcare_plot.png")
+ggsave(filename = pwchealthcare_plot, 
+       plot = pwc_facility_plot,
+       dpi = 300)
+```
+
+---
+
+### Facility-Years
+This is continuous - so categorical tests won't work. We'll create a scatter plot and examine the correlation.
+```{r facility years scatterplot}
+facyrs_plot <- ggplot2::ggplot(data = data_pairwise, aes(x = FacilityYears, y = delta)) +
+                          geom_point() +
+                          labs(x = "Number of Years at Facility",
+                               y = "Change in Confidence Score")
+facyrs_plot
+```
+
+```{r facility years SLR}
+facyrs_fit <- stats::lm(delta ~ FacilityYears, data = data_pairwise)
+
+summary(facyrs_fit)
+
+broom::tidy(facyrs_fit)
+```
+Number of years at facility is not significant.
+
+---
+
+### Facilities-Number
+This is continuous - so categorical tests won't work. We'll create a scatter plot and examine the correlation.
+```{r facilities number scatterplot}
+facnum_plot <- ggplot2::ggplot(data = data_pairwise, aes(x = FacilitiesNumber, y = delta)) +
+                          geom_point() +
+                          labs(x = "Number of Facilities Worked",
+                               y = "Change in Confidence Score")
+facnum_plot
+```
+
+```{r facilities number SLR}
+facnum_fit <- stats::lm(delta ~ FacilitiesNumber, data = data_pairwise)
+
+summary(facnum_fit)
+
+broom::tidy(facnum_fit)
+```
+Number of facilities worked is not significant.
+---
+
+### Shift-Type
+
+1. Density plot of pre- and post-survey confidence scores
+```{r shift}
+#make a df for mean scores by shift type
+data_long_shift <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Shift-Type`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for shift and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+shift_plot <- base_plot + ggplot2::facet_wrap(. ~ `Shift-Type`) +
+                                   theme(strip.text.x = element_text(face = "bold")) +
+                                   geom_vline(data = data_long_shift,
+                                              mapping = aes(xintercept = Mean.score,
+                                                            linetype = TestCat))
+
+shift_plot
+
+#save plot
+shift_conf_plot = here::here("results", "prepost", "shift_conf_plot.png")
+ggsave(filename = shift_conf_plot, 
+       plot = shift_plot,
+       width = 8, height = 5, dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by Shift Type
+```{r pairwise shift}
+#summary statistics
+shift_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(ShiftType) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+shift_sum_stats
+
+#compare mean of shift type using ANOVA
+shiftaov <- data_pairwise %>% rstatix::anova_test(delta ~ ShiftType)
+shiftaov
+
+#pairwise comparison by shift 
+pwcshift <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ ShiftType, p.adjust.method = "bonferroni")
+pwcshift
+
+```
+
+Shift Type is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r shift boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_shift_plot <- ggpubr::ggboxplot(data_pairwise, x = "ShiftType", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcshift,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Shift Type",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(shiftaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcshift))
+pwc_shift_plot
+
+#save plot
+pwcshift_plot = here::here("results", "prepost", "pwc_shift_plot.png")
+
+ggsave(filename = pwcshift_plot, 
+       plot = pwc_shift_plot,
+       dpi = 300)
+```
+
+---
+
+### EC-YN
+
+1. Density plot of pre- and post-survey confidence scores
+```{r EC}
+#make a df for mean scores by EC knowledge
+data_long_ec <- data_1_long %>%
+                        dplyr::group_by(TestCat, `EC-YN`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for EC and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+EC_plot <- base_plot + ggplot2::facet_wrap(. ~ `EC-YN`) +
+                                theme(strip.text.x = element_text(face = "bold")) +
+                                geom_vline(data = data_long_ec,
+                                           mapping = aes(xintercept = Mean.score,
+                                                         linetype = TestCat))
+
+EC_plot
+
+#save plot
+ec_conf_plot = here::here("results", "prepost", "ec_conf_plot.png")
+ggsave(filename = ec_conf_plot, 
+       plot = EC_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by Shift Type
+```{r pairwise EC}
+#summary statistics
+ec_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(ECYN) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+ec_sum_stats
+
+#compare mean of shift type using ANOVA
+ecaov <- data_pairwise %>% rstatix::anova_test(delta ~ ECYN)
+ecaov
+
+#pairwise comparison by shift 
+pwcec <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ ECYN, p.adjust.method = "bonferroni")
+pwcec
+
+```
+
+Knowledge of procedure for activating emergency codes is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r ec boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_ec_plot <- ggpubr::ggboxplot(data_pairwise, x = "ECYN", y = "delta") +
+                       ggpubr::stat_pvalue_manual(pwcec,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Knowledge of Activation Procedure for Codes",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(shiftaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcshift))
+pwc_ec_plot
+
+#save plot
+pwcec_plot = here::here("results", "prepost", "pwc_ec_plot.png")
+
+ggsave(filename = pwcec_plot, 
+       plot = pwc_ec_plot,
+       dpi = 300)
+```
+
+---
+
+### Facilities-different-codes
+
+1. Density plot of pre- and post-survey confidence scores
+```{r facility diff}
+#make a df for mean scores by different facility codes
+data_long_facdiff <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Facilities-different-codes`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for different facility codes and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+facdiff_plot <- base_plot + ggplot2::facet_wrap(. ~ `Facilities-different-codes`) +
+                                     theme(strip.text.x = element_text(face = "bold")) +
+                                     geom_vline(data = data_long_facdiff,
+                                                mapping = aes(xintercept = Mean.score,
+                                                              linetype = TestCat))
+
+facdiff_plot
+
+#save plot
+facdiff_conf_plot = here::here("results", "prepost", "facdiff_conf_plot.png")
+ggsave(filename = facdiff_conf_plot, 
+       plot = facdiff_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by Facilities wit Different Codes
+```{r pairwise facdiff}
+#summary statistics
+facdiff_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(Facilitiesdifferentcodes) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+facdiff_sum_stats
+
+#compare mean of facdiff using ANOVA
+facdiffaov <- data_pairwise %>% rstatix::anova_test(delta ~ Facilitiesdifferentcodes)
+facdiffaov
+
+#pairwise comparison by facdiff 
+pwcfacdiff <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ Facilitiesdifferentcodes, p.adjust.method = "bonferroni")
+pwcfacdiff
+
+```
+
+Whether they have worked at a facility with different codes is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r facdiff boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_facdiff_plot <- ggpubr::ggboxplot(data_pairwise, x = "Facilitiesdifferentcodes", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcfacdiff,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Worked at a Facility with Different Color Codes",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(shiftaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcshift))
+pwc_facdiff_plot
+
+#save plot
+pwcfacdiff_plot = here::here("results", "prepost", "pwc_facdiff_plot.png")
+
+ggsave(filename = pwcfacdiff_plot, 
+       plot = pwc_facdiff_plot,
+       dpi = 300)
+```
+
+---
+
+## Scores by Code Opinions
+We want to know if the distribution of confidence scores varies by opinions on color codes. The following variables will be analyzed:
+
+* PL-codes
+* Code-exceptions
+* Training-Orientation
+* Training-Yearly
+* Training-Exercise
+* Training-OtherCat
+* Training-last-time
+* Code-confusion
+
+
+<br>
+
+The following steps will be followed for each variable:
+
+1. Visualization: Pre/Post Density Plot
+2. Pairwise t-test (with a bonferroni correction)
+3. Visualization: Box Plot with p-values
+
+<br>
+
+The density plot visualization will just build off of the `base_plot` developed above.
+
+<br>
+
+
+---
+
+### PL-codes
+
+1. Density plot of pre- and post-survey confidence scores
+```{r pl codes}
+#make a df for mean scores by pl code preference
+data_long_plcodes <- data_1_long %>%
+                        dplyr::group_by(TestCat, `PL-codes`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for pl codes and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+plcodes_plot <- base_plot + ggplot2::facet_wrap(. ~ `PL-codes`) +
+                                      theme(strip.text.x = element_text(face = "bold")) +
+                                      geom_vline(data = data_long_plcodes,
+                                                 mapping = aes(xintercept = Mean.score,
+                                                               linetype = TestCat))
+
+plcodes_plot
+
+#save plot
+plcodes_conf_plot = here::here("results", "prepost", "plcodes_conf_plot.png")
+ggsave(filename = plcodes_conf_plot, 
+       plot = plcodes_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by code preference
+```{r pairwise pl codes}
+#summary statistics
+plcodes_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(PLcodes) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+plcodes_sum_stats
+
+#compare mean of code preference using ANOVA
+plcodesaov <- data_pairwise %>% rstatix::anova_test(delta ~ PLcodes)
+plcodesaov
+
+#pairwise comparison by code preference
+pwcplcodes <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ PLcodes, p.adjust.method = "bonferroni")
+pwcplcodes
+
+```
+
+Code preference is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r plcodes boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_plcodes_plot <- ggpubr::ggboxplot(data_pairwise, x = "PLcodes", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcplcodes,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Code Type Preference",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(plcodesaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcplcodes))
+pwc_plcodes_plot
+
+#save plot
+pwcplcodes_plot = here::here("results", "prepost", "pwc_plcodes_plot.png")
+ggsave(filename = pwcplcodes_plot, 
+       plot = pwc_plcodes_plot,
+       dpi = 300)
+```
+
+---
+
+### Code-exceptions
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code exceptions}
+#make a df for mean scores by code exceptions
+data_long_excepts <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Code-exceptions`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for exceptions and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+excepts_plot <- base_plot + ggplot2::facet_wrap(. ~ `Code-exceptions`) +
+                                      theme(strip.text.x = element_text(face = "bold")) +
+                                      geom_vline(data = data_long_excepts,
+                                                 mapping = aes(xintercept = Mean.score,
+                                                               linetype = TestCat))
+
+excepts_plot
+
+#save plot
+excepts_conf_plot = here::here("results", "prepost", "excepts_conf_plot.png")
+ggsave(filename = excepts_conf_plot, 
+       plot = excepts_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by code exceptions
+```{r pairwise excepts}
+#summary statistics
+excepts_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(Codeexceptions) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+excepts_sum_stats
+
+#compare mean of code exceptions using ANOVA
+exceptsaov <- data_pairwise %>% rstatix::anova_test(delta ~ Codeexceptions)
+exceptsaov
+
+#pairwise comparison by code exceptions
+pwcexcepts <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ Codeexceptions, p.adjust.method = "bonferroni")
+pwcexcepts
+
+```
+
+Preference to keep certain exceptions for plain language code is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r excepts boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_excepts_plot <- ggpubr::ggboxplot(data_pairwise, x = "Codeexceptions", y = "delta") +
+                     ggpubr::stat_pvalue_manual(pwcexcepts,
+                                                hide.ns = TRUE,
+                                                label = "p.adj",
+                                                y.position = 0.15,
+                                                step.increase = 0.2) +
+                             labs(x = "Certain codes should always remain color",
+                                  y = "Change in Confidence Score",
+                                  subtitle = rstatix::get_test_label(exceptsaov, detailed = TRUE),
+                                  caption = rstatix::get_pwc_label(pwcexcepts))
+pwc_excepts_plot
+
+#save plot
+pwcexcepts_plot = here::here("results", "prepost", "pwc_excepts_plot.png")
+ggsave(filename = pwcexcepts_plot, 
+       plot = pwc_excepts_plot,
+       dpi = 300)
+```
+
+---
+
+### Training-Orientation
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code orientation}
+#make a df for mean scores by code exceptions
+data_long_orientation <- data_1_long %>%
+                             dplyr::group_by(TestCat, `Training-Orientation`) %>%
+                             dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for training at orientation and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+orientation_plot <- base_plot + ggplot2::facet_wrap(. ~ `Training-Orientation`) +
+                                         theme(strip.text.x = element_text(face = "bold")) +
+                                         geom_vline(data = data_long_orientation,
+                                                    mapping = aes(xintercept = Mean.score,
+                                                                  linetype = TestCat))
+
+orientation_plot
+
+#save plot
+orientation_conf_plot = here::here("results", "prepost", "orientation_conf_plot.png")
+ggsave(filename = orientation_conf_plot, 
+       plot = orientation_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by training at orientation
+```{r pairwise orientation}
+
+#summary statistics
+orientation_sum_stats <- data_pairwise %>%
+                           dplyr::group_by(TrainingOrientation) %>%
+                           rstatix::get_summary_stats(delta, type = "mean_sd")
+orientation_sum_stats
+
+#compare mean of training at orientation using ANOVA
+orientationaov <- data_pairwise %>% rstatix::anova_test(delta ~ TrainingOrientation)
+orientationaov
+
+#pairwise comparison by training at orientation
+pwcorientation <- data_pairwise %>%
+                         rstatix::pairwise_t_test(delta ~ TrainingOrientation, p.adjust.method = "bonferroni")
+pwcorientation
+```
+
+Training at Orientation is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r orientation boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_orientation_plot <- ggpubr::ggboxplot(data_pairwise, x = "TrainingOrientation", y = "delta") +
+                         ggpubr::stat_pvalue_manual(pwcorientation,
+                                                    hide.ns = TRUE,
+                                                    label = "p.adj",
+                                                    y.position = 0.15,
+                                                    step.increase = 0.2) +
+                                 labs(x = "Training at Orientation",
+                                      y = "Change in Confidence Score",
+                                      subtitle = rstatix::get_test_label(orientationaov, detailed = TRUE),
+                                      caption = rstatix::get_pwc_label(pwcorientation))
+pwc_orientation_plot
+
+#save plot
+pwcorientation_plot = here::here("results", "prepost", "pwc_orientation_plot.png")
+ggsave(filename = pwcorientation_plot, 
+       plot = pwc_orientation_plot,
+       dpi = 300)
+```
+
+---
+
+### Training-Yearly
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code yearly}
+#make a df for mean scores by code exceptions
+data_long_yearly <- data_1_long %>%
+                             dplyr::group_by(TestCat, `Training-Yearly`) %>%
+                             dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for yearly training and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+yearly_plot <- base_plot + ggplot2::facet_wrap(. ~ `Training-Yearly`) +
+                                         theme(strip.text.x = element_text(face = "bold")) +
+                                         geom_vline(data = data_long_yearly,
+                                                    mapping = aes(xintercept = Mean.score,
+                                                                  linetype = TestCat))
+
+yearly_plot
+
+#save plot
+yearly_conf_plot = here::here("results", "prepost", "yearly_conf_plot.png")
+ggsave(filename = yearly_conf_plot, 
+       plot = yearly_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by yearly training 
+```{r pairwise yearly}
+#summary statistics
+yearly_sum_stats <- data_pairwise %>%
+                           dplyr::group_by(TrainingYearly) %>%
+                           rstatix::get_summary_stats(delta, type = "mean_sd")
+yearly_sum_stats
+
+#compare mean of yearly training using ANOVA
+yearlyaov <- data_pairwise %>% rstatix::anova_test(delta ~ TrainingYearly)
+yearlyaov
+
+#pairwise comparison by yearly training
+pwcyearly <- data_pairwise %>%
+                    rstatix::pairwise_t_test(delta ~ TrainingYearly, p.adjust.method = "bonferroni")
+pwcyearly
+```
+
+Yearly training is significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r yearly boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_yearly_plot <- ggpubr::ggboxplot(data_pairwise, x = "TrainingYearly", y = "delta") +
+                         ggpubr::stat_pvalue_manual(pwcyearly,
+                                                    hide.ns = TRUE,
+                                                    label = "p.adj",
+                                                    y.position = 0.15,
+                                                    step.increase = 0.2) +
+                                 labs(x = "Yearly Training",
+                                      y = "Change in Confidence Score",
+                                      subtitle = rstatix::get_test_label(yearlyaov, detailed = TRUE),
+                                      caption = rstatix::get_pwc_label(pwcyearly))
+pwc_yearly_plot
+
+#save plot
+pwcyearly_plot = here::here("results", "prepost", "pwc_yearly_plot.png")
+ggsave(filename = pwcyearly_plot, 
+       plot = pwc_yearly_plot,
+       dpi = 300)
+```
+
+---
+
+### Training-Exercises
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code exercises}
+#make a df for mean scores by training during drills and exercises
+data_long_exercises <- data_1_long %>%
+                             dplyr::group_by(TestCat, `Training-Exercises`) %>%
+                             dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for training at exercises and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+exercises_plot <- base_plot + ggplot2::facet_wrap(. ~ `Training-Exercises`) +
+                                       theme(strip.text.x = element_text(face = "bold")) +
+                                       geom_vline(data = data_long_exercises,
+                                                  mapping = aes(xintercept = Mean.score,
+                                                                linetype = TestCat))
+
+exercises_plot
+
+#save plot
+exercises_conf_plot = here::here("results", "prepost", "exercises_conf_plot.png")
+ggsave(filename = exercises_conf_plot, 
+       plot = exercises_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by training at exercises
+```{r pairwise exercises}
+#summary statistics
+exercises_sum_stats <- data_pairwise %>%
+                           dplyr::group_by(TrainingExercises) %>%
+                           rstatix::get_summary_stats(delta, type = "mean_sd")
+exercises_sum_stats
+
+#compare mean of training at exercises using ANOVA
+exercisesaov <- data_pairwise %>% rstatix::anova_test(delta ~ TrainingExercises)
+exercisesaov
+
+#pairwise comparison by training at exercises
+pwcexercises <- data_pairwise %>%
+                         rstatix::pairwise_t_test(delta ~ TrainingExercises, p.adjust.method = "bonferroni")
+pwcexercises
+```
+
+Training at Exercises is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r exercises boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_exercises_plot <- ggpubr::ggboxplot(data_pairwise, x = "TrainingExercises", y = "delta") +
+                         ggpubr::stat_pvalue_manual(pwcexercises,
+                                                    hide.ns = TRUE,
+                                                    label = "p.adj",
+                                                    y.position = 0.15,
+                                                    step.increase = 0.2) +
+                                 labs(x = "Training during Drills/Exercises",
+                                      y = "Change in Confidence Score",
+                                      subtitle = rstatix::get_test_label(exercisesaov, detailed = TRUE),
+                                      caption = rstatix::get_pwc_label(pwcexercises))
+pwc_exercises_plot
+
+#save plot
+pwcexercises_plot = here::here("results", "prepost", "pwc_exercises_plot.png")
+ggsave(filename = pwcexercises_plot, 
+       plot = pwc_exercises_plot,
+       dpi = 300)
+```
+
+---
+
+### Training-OtherCat
+
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code OtherCat}
+#make a df for mean scores by other training
+data_long_OtherCat <- data_1_long %>%
+                             dplyr::group_by(TestCat, `Training-OtherCat`) %>%
+                             dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for other training and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+OtherCat_plot <- base_plot + ggplot2::facet_wrap(. ~ `Training-OtherCat`) +
+                                       theme(strip.text.x = element_text(face = "bold")) +
+                                       geom_vline(data = data_long_OtherCat,
+                                                  mapping = aes(xintercept = Mean.score,
+                                                                linetype = TestCat))
+
+OtherCat_plot
+
+#save plot
+OtherCat_conf_plot = here::here("results", "prepost", "OtherCat_conf_plot.png")
+ggsave(filename = OtherCat_conf_plot, 
+       plot = OtherCat_plot,
+       dpi = 300)
+```
+No respondents provided another category of training.
+
+---
+
+### Training-last-time
+
+1. Density plot of pre- and post-survey confidence scores
+```{r lasttrain}
+#make a df for mean scores by years in last training
+data_long_lasttrain <- data_1_long %>%
+                        dplyr::group_by(TestCat, `Training-last-time`) %>%
+                        dplyr::summarise(Mean.score = mean(score))
+
+#reorder the levels of lasttrain using relevel
+#replicate data
+data_1_long_lt <- data_1_long
+
+#reorder group factor levels
+data_1_long_lt$`Training-last-time` <- factor(data_1_long_lt$`Training-last-time`,
+                                              levels = c("< 1 month", "1-6 months", "6-12 months", "> 1 year"))
+data_long_lasttrain$`Training-last-time` <- factor(data_long_lasttrain$`Training-last-time`,
+                                                  levels = c("< 1 month", "1-6 months", "6-12 months", "> 1 year"))
+
+
+#we have to re-do the whole plot in order to reorder the lasttrain category
+#linetype for the mean confidence score varies by pre/post survey
+lasttrain_plot <- ggplot2::ggplot(data = data_1_long_lt, aes(x = score)) +
+                            geom_density(aes(fill = TestCat,
+                                             alpha = TestCat)) +
+                            scale_fill_manual(values = c("#999999", "#009E73")) +
+                            scale_alpha_manual(values = c(1, 0.5)) +
+                            scale_x_continuous(breaks = seq(1, 7, by = 1)) +
+                            facet_wrap(. ~ `Training-last-time`) +
+                            geom_vline(data = data_long_lasttrain,
+                                       mapping = aes(xintercept = Mean.score,
+                                                     linetype = TestCat)) +
+                            theme(legend.title = element_blank(),
+                                  strip.text.x = element_text(face = "bold")) +
+                            labs(y = "Density",
+                                 x = "Confidence Score")
+lasttrain_plot
+
+#save plot
+lasttrain_conf_plot = here::here("results", "prepost", "lasttrain_conf_plot.png")
+ggsave(filename = lasttrain_conf_plot, 
+       plot = lasttrain_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by lasttrain
+```{r pairwise lasttrain}
+#summary statistics
+lasttrain_sum_stats <- data_pairwise %>%
+                        dplyr::group_by(Traininglasttime) %>%
+                        rstatix::get_summary_stats(delta, type = "mean_sd")
+lasttrain_sum_stats
+
+#compare mean of lasttrain using ANOVA
+lasttrainaov <- data_pairwise %>% rstatix::anova_test(delta ~ Traininglasttime)
+lasttrainaov
+
+#pairwise comparison by lasttrain
+pwclasttrain <- data_pairwise %>%
+                  rstatix::pairwise_t_test(delta ~ Traininglasttime, p.adjust.method = "bonferroni")
+pwclasttrain
+
+```
+
+Date of last training is not significant
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r lasttrain boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_lasttrain_plot <- ggpubr::ggboxplot(data_pairwise, x = "Traininglasttime", y = "delta") +
+                       ggpubr::stat_pvalue_manual(pwclasttrain,
+                                                  hide.ns = TRUE,
+                                                  label = "p.adj",
+                                                  y.position = 0.15,
+                                                  step.increase = 0.2) +
+                               labs(x = "Time Since Last Training",
+                                    y = "Change in Confidence Score",
+                                    subtitle = rstatix::get_test_label(lasttrainaov, detailed = TRUE),
+                                    caption = rstatix::get_pwc_label(pwclasttrain))
+pwc_lasttrain_plot
+
+#save plot
+pwclasttrain_plot = here::here("results", "prepost", "pwc_lasttrain_plot.png")
+ggsave(filename = pwclasttrain_plot, 
+       plot = pwc_lasttrain_plot,
+       dpi = 300)
+```
+
+---
+
+### Code-confusion
+
+
+1. Density plot of pre- and post-survey confidence scores
+```{r code confusion}
+#make a df for mean scores by witnessing code confusion
+data_long_confusion <- data_1_long %>%
+                             dplyr::group_by(TestCat, `Code-confusion`) %>%
+                             dplyr::summarise(Mean.score = mean(score))
+
+#add a facet wrap to base plot for training at exercises and lines for mean scores
+#linetype for the mean confidence score varies by pre/post survey
+confusion_plot <- base_plot + ggplot2::facet_wrap(. ~ `Code-confusion`) +
+                                       theme(strip.text.x = element_text(face = "bold")) +
+                                       geom_vline(data = data_long_confusion,
+                                                  mapping = aes(xintercept = Mean.score,
+                                                                linetype = TestCat))
+
+confusion_plot
+
+#save plot
+confusion_conf_plot = here::here("results", "prepost", "confusion_conf_plot.png")
+ggsave(filename = confusion_conf_plot, 
+       plot = confusion_plot,
+       dpi = 300)
+```
+
+<br>
+
+2. Pairwise T-test by code confusion
+```{r pairwise confusion}
+#summary statistics
+confusion_sum_stats <- data_pairwise %>%
+                           dplyr::group_by(Codeconfusion) %>%
+                           rstatix::get_summary_stats(delta, type = "mean_sd")
+confusion_sum_stats
+
+#compare mean of code confusion using ANOVA
+confusionaov <- data_pairwise %>% rstatix::anova_test(delta ~ Codeconfusion)
+confusionaov
+
+#pairwise comparison by code confusion
+pwcconfusion <- data_pairwise %>%
+                         rstatix::pairwise_t_test(delta ~ Codeconfusion, p.adjust.method = "bonferroni")
+pwcconfusion
+```
+
+Witnessing code confusion is not significant.
+
+<br>
+
+3. Visualization: Box Plot with P-values
+```{r confusion boxplot pwc}
+#show significant levels
+#hide non-significant tests
+
+pwc_confusion_plot <- ggpubr::ggboxplot(data_pairwise, x = "Codeconfusion", y = "delta") +
+                         ggpubr::stat_pvalue_manual(pwcconfusion,
+                                                    hide.ns = TRUE,
+                                                    label = "p.adj",
+                                                    y.position = 0.15,
+                                                    step.increase = 0.2) +
+                                 labs(x = "Witnessed Code Confusion",
+                                      y = "Change in Confidence Score",
+                                      subtitle = rstatix::get_test_label(confusionaov, detailed = TRUE),
+                                      caption = rstatix::get_pwc_label(pwcconfusion))
+pwc_confusion_plot
+
+#save plot
+pwcconfusion_plot = here::here("results", "prepost", "pwc_confusion_plot.png")
+ggsave(filename = pwcconfusion_plot, 
+       plot = pwc_confusion_plot,
+       dpi = 300)
+```
+
+---

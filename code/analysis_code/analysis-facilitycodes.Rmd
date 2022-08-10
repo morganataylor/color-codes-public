@@ -1,0 +1,267 @@
+---
+title: "Analysis: Codes By Facility"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the answer key for each facility and creates a visualization of the answers.
+
+* Data Wrangling for this analysis
+* Stacked Barplot for All Questions
+
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* ggpattern: for adding a pattern to the grid
+* extrafont: for changing ggplot fonts
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(tidyverse)
+library(ggpattern)
+library(extrafont)
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+theme_update(plot.title = element_text(hjust = 0.5))
+
+#load fonts
+loadfonts(device = "win")
+```
+
+---
+
+## Load Data
+Load the data in the `raw_data`` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "raw_data", "codekey.csv")
+
+#load data
+key <- read.csv(data_location)
+```
+
+---
+
+## Convert to Long Format
+```{r long format}
+key_long <- key %>%
+              tidyr::gather(Emergency, Code, `Fire`:`Hostage.Situation`, factor_key = TRUE)
+
+#change labels
+levels(key_long$Emergency) <- c("Fire", "Cardiac Arrest", "Pediatric Emergency", "Bomb Threat", "Violence", "Active Shooter", "Infant Abduction",
+                                "Mass Casualty", "Internal Disaster", "Hazardous Materials", "Missing Adult", "Severe Weather", "Missing Child",
+                                "Hostage Situation")
+
+#add column for code type
+key_long$Type <- key_long$Code
+
+#add column for color codes
+key_long$ColorCode <- key_long$Code
+
+#Replace any colors with the word "color"
+key_long$Type[key_long$Type == "Red"] <- "Color Code"
+key_long$Type[key_long$Type == "Blue"] <- "Color Code"
+key_long$Type[key_long$Type == "Gray"] <- "Color Code"
+key_long$Type[key_long$Type == "Black"] <- "Color Code"
+key_long$Type[key_long$Type == "Silver"] <- "Color Code"
+key_long$Type[key_long$Type == "Pink"] <- "Color Code"
+key_long$Type[key_long$Type == "Orange"] <- "Color Code"
+key_long$Type[key_long$Type == "Gold"] <- "Color Code"
+key_long$Type[key_long$Type == "Green"] <- "Color Code"
+
+#fix type category
+key_long$Type[key_long$Type == "Code Strong"] <- "Other"
+key_long$Type[key_long$Type == "Security Stat"] <- "Other"
+key_long$Type[key_long$Type == "Code Triage"] <- "Other"
+key_long$Type[key_long$Type == "Code Triage A"] <- "Other"
+key_long$Type[key_long$Type == "Code Triage B"] <- "Other"
+key_long$Type[key_long$Type == "Code [Facility]"] <- "Other"
+key_long$Type[key_long$Type == "Code E"] <- "Other"
+
+#Replace any "other" codes in code column
+key_long$ColorCode[key_long$ColorCode == "None Identified"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code Strong"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Security Stat"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code Triage"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code Triage A"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code Triage B"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code [Facility]"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Code E"] <- "Not a Color Code"
+key_long$ColorCode[key_long$ColorCode == "Plain Language"] <- "Not a Color Code"
+```
+
+---
+
+## Plot Different Codes for Each Emergency
+Option 1: Color Codes and Label any "Other" or "Plain Language" codes
+```{r codes by emergency plot}
+#unique values of codes
+# "Red"             "Blue"            "None Identified" "Gray"            "Black"           "Code Strong"     "Security Stat"   "Silver"         
+# "Pink"            "Code Triage"     "Code Triage A"   "Code Triage B"   "Code [Facility]" "Orange"          "Gold"            "Code E"         
+# "Green"           "Plain Language" 
+
+codes_emergency_plot <- key_long %>%
+                              dplyr::group_by(Emergency, Code, Type, ColorCode) %>%
+                              dplyr::count(Code) %>%
+                              ggplot2::ggplot(aes(x = Emergency,
+                                                  y = n)) +
+                              ggplot2::geom_bar(aes(fill = ColorCode),
+                                                position = "fill",
+                                                stat = "identity",
+                                                color = "black") +
+                              ggplot2::scale_y_continuous(labels = scales::percent,
+                                                      expand = c(0,0)) +
+                              ggplot2::scale_fill_manual(values = c("Red" = "firebrick1",
+                                                                 "Blue" = "dodgerblue",
+                                                                 "Not a Color Code" = "white",
+                                                                 "Gray" = "darkgray",
+                                                                 "Black" = "black",
+                                                                 "Silver" = "grey90",
+                                                                 "Pink" = "hotpink",
+                                                                 "Orange" = "darkorange",
+                                                                 "Gold" = "gold",
+                                                                 "Green" = "springgreen3")) +
+                              ggplot2::labs(x = " ",
+                                            y = "Percent of Facilities") +
+                              ggplot2::theme(text = element_text(family = "sans"),
+                                             axis.text = element_text(color = "black"),
+                                             axis.text.x = element_text(angle = 90,
+                                                                        vjust = 0.5,
+                                                                        hjust = 1)) +
+                              ggplot2::annotate(geom = "text",
+                                                x = 5,
+                                                y = 0.1,
+                                                angle = 90,
+                                                label = stringr::str_wrap("Code Strong", 3),
+                                                lineheight = 0.65) +
+                              ggplot2::annotate(geom = "text",
+                                                x = 5,
+                                                y = 0.4,
+                                                angle = 90,
+                                                label = "Security Stat") +
+                              ggplot2::annotate(geom = "text",
+                                                x = 8,
+                                                y = 0.3,
+                                                angle = 90,
+                                                label = "Code Triage") +
+                              ggplot2::annotate(geom = "text",
+                                                x = 8,
+                                                y = 0.8,
+                                                angle = 90,
+                                                label = "Code Triage A") +
+                              ggplot2::annotate(geom = "text",
+                                                x = 9,
+                                                y = 0.4,
+                                                angle = 90,
+                                                label = "Code Triage B") +
+                              ggplot2::annotate(geom = "text",
+                                                x = 9,
+                                                y = 0.7,
+                                                angle = 90,
+                                                label = stringr::str_wrap("Code [Facility]", 3),
+                                                lineheight = 0.7) +
+                              ggplot2::annotate(geom = "text",
+                                                x = 11,
+                                                y = 0.2,
+                                                angle = 90,
+                                                label = "Code E") +
+                              ggplot2::annotate(geom = "text",
+                                                x = 12,
+                                                y = 0.2,
+                                                angle = 90,
+                                                label = "Plain Language") +
+                              ggplot2::guides(fill = guide_legend(ncol = 2))
+  
+codes_emergency_plot
+
+#patterns that work: none, weave, stripe, circle, crosshatch
+```
+
+<br>
+
+Option 2: Pattern by Code Type
+```{r codes by emergency plot 2}
+#unique values of codes
+# "Red"             "Blue"            "None Identified" "Gray"            "Black"           "Code Strong"     "Security Stat"   "Silver"         
+# "Pink"            "Code Triage"     "Code Triage A"   "Code Triage B"   "Code [Facility]" "Orange"          "Gold"            "Code E"         
+# "Green"           "Plain Language" 
+
+#order emergencies
+emergency_order <- c("Active Shooter", "Bomb Threat", "Cardiac Arrest", "Fire", "Hazardous Materials", "Hostage Situation", "Infant Abduction",
+                     "Internal Disaster", "Mass Casualty", "Missing Adult", "Missing Child", "Pediatric Emergency", "Severe Weather", "Violence")
+
+
+codes_emergency_plot2 <- key_long %>%
+                              dplyr::group_by(Emergency, Code, Type, ColorCode) %>%
+                              dplyr::count(Code) %>%
+                              ggplot2::ggplot(aes(x = factor(Emergency, level = emergency_order),
+                                                  y = n,
+                                                  fill = ColorCode,
+                                                  pattern = Type)) +
+                              ggpattern::geom_bar_pattern(position = "fill",
+                                                stat = "identity",
+                                                color = "black",
+                                                pattern_fill = "black",
+                                                pattern_angle = 45,
+                                                pattern_density = 0.1,
+                                                pattern_spacing = 0.025,
+                                                pattern_key_scale_factor = 0.6) +
+                              ggpattern::scale_pattern_manual(values = c("Color Code" = "none",
+                                                                         "None Identified" = "stripe",
+                                                                         "Other" = "circle",
+                                                                         "Plain Language" = "crosshatch")) +
+                              ggplot2::scale_y_continuous(labels = scales::percent,
+                                                      expand = c(0,0)) +
+                              ggplot2::scale_fill_manual(values = c("Pink" = "#EE4C97FF",
+                                                                    "Red" = "#BC3C29FF",
+                                                                    "Orange" = "#E18727FF",
+                                                                    "Gold" = "#FFDC91FF",
+                                                                    "Green" = "#20854EFF",
+                                                                    "Blue" = "#6F99ADFF",
+                                                                    "Gray" = "gray47",
+                                                                    "Silver" = "grey84",
+                                                                    "Black" = "black",
+                                                                    "Not a Color Code" = "white")) +
+                              ggplot2::labs(x = " ",
+                                            y = "Percent of Facilities",
+                                            pattern = "Code Type",
+                                            fill = "Color Code") +
+                              ggplot2::theme(text = element_text(family = "Palatino Linotype"),
+                                             axis.text = element_text(color = "black"),
+                                             axis.text.x = element_text(angle = 90,
+                                                                        vjust = 0.5,
+                                                                        hjust = 1)) +
+                              ggplot2::guides(pattern = guide_legend(override.aes = list(fill = "white"),
+                                                                     ncol = 2),
+                                              fill = guide_legend(override.aes = list(pattern = "none"),
+                                                                  ncol = 2))
+
+codes_emergency_plot2
+
+codes_emergency_file = here("results", "codes", "emergency_codes.png")
+ggsave(filename = codes_emergency_file, 
+       plot = codes_emergency_plot2, dpi = 300)
+```
+
+

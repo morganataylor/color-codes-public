@@ -1,0 +1,334 @@
+---
+title: "Analysis: Exploratory Data Analysis"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed data and conducts the exploratory data analysis. Follow the processing markdowns in the `processing_code` folder to generate the processed data.
+
+<br>
+
+This analysis examines the predictors of performance on the code survey. In terms of the dataset, the three (potential) outcomes of interest are Overall Grade (`GradeOverall`), Code Type Grade (`GradeType`), and Code Answer Grade (`CodeScore`).
+
+<br>
+
+It also creates the summary table in the manuscript.
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* skimr: for data summarization
+* summarytools: for overall dataframe summary
+* car: for creating QQ plots
+* gtsummary: for creating tables for summary statistics / other numerical outputs
+* flextable: for outputting tables in word
+* extrafont: for changing the font of ggplots
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here) #to set paths
+library(tidyverse) #for data processing
+library(skimr) #for data summarization
+library(summarytools) #for overall dataframe summary
+library(car) #for creating QQ plots
+library(gtsummary) #for creating tables
+library(flextable) #for outputting to word
+library(extrafont) #for changing ggplot fonts
+
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+ggplot2::theme_update(plot.title = element_text(hjust = 0.5))
+
+#set gtsummary theme
+gtsummary::theme_gtsummary_compact()
+
+#load fonts
+loadfonts(device = "win")
+
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "full_processed.rds")
+
+#load data
+EDAdata <- readRDS(data_location)
+```
+
+---
+
+## Data Overview
+To better understand the data, let's use `summarytools` to better visualize the data.
+```{r data overview}
+summarytools::dfSummary(EDAdata)
+
+skimr::skim(EDAdata)
+```
+Looking at the output of `summarytools::dfsummary()`
+
+* There are 304 completed survey responses
+* `GradeOverall` ranges from 0.1 to 1, with a mean of 0.5
+* `GradeType` ranges from 0.1 to 1, with a mean of 0.6
+* `CodeScore` ranges from 0 to 1, with a mean of 0.4
+* There still appears to be a preference to keep color codes
+
+Let's dive a little deeper into each variable.
+
+---
+
+## Outcome of Interest: Overall Performance
+The first potential outcome of interest is the overall performance across all survey questions.
+```{r overall performance}
+#summary statistics
+base::summary(EDAdata$`GradeOverall`)
+
+#density plot
+ggplot2::ggplot(data = EDAdata, aes(x = `GradeOverall`)) +
+  geom_density()
+
+#normal boxplot
+ggplot2::ggplot(data = EDAdata, aes(y = `GradeOverall`)) +
+  geom_boxplot()
+
+##QQ plot
+car::qqPlot(EDAdata$`GradeOverall`)
+```
+
+These outputs show the overall performance is relatively normally distributed. There really don't seem to be any outliers, and it does not appear to require any transformation.
+
+---
+
+## Outcome of Interest: Code Type Performance
+The next potential outcome of interest is the performance across survey questions that asked about the type of code for each hazard.
+```{r type performance}
+#summary statistics
+base::summary(EDAdata$`GradeType`)
+
+#density plot
+ggplot2::ggplot(data = EDAdata, aes(x = `GradeType`)) +
+  geom_density()
+
+#normal boxplot
+ggplot2::ggplot(data = EDAdata, aes(y = `GradeType`)) +
+  geom_boxplot()
+
+##QQ plot
+car::qqPlot(EDAdata$`GradeType`)
+```
+
+These outputs show the overall performance is relatively normally distributed. There are a few potential outliers, and the distribution is just slightly skewed to the right.
+
+---
+
+## Outcome of Interest: Code Answer Performance
+The last potential outcome of interest is the performance across survey questions that asked participants to identify the specific code for each hazard.
+```{r answer performance}
+#summary statistics
+base::summary(EDAdata$`CodeScore`)
+
+#density plot
+ggplot2::ggplot(data = EDAdata, aes(x = `CodeScore`)) +
+  geom_density()
+
+#normal boxplot
+ggplot2::ggplot(data = EDAdata, aes(y = `CodeScore`)) +
+  geom_boxplot()
+
+##QQ plot
+car::qqPlot(EDAdata$`CodeScore`)
+```
+
+These outputs show the overall performance is relatively normally distributed. There really don't seem to be any outliers, and it does not appear to require any transformation.
+
+---
+
+## Compare Outcomes of Interest
+Before moving on, let's create a plot to compare the distribution of the three outcomes.
+```{r outcome comparison plot}
+#convert to long format in order to be able to plot all three outcomes with the same variable
+data_long <- tidyr::gather(EDAdata, GradeCat, score, `GradeOverall`:`CodeScore`, factor_key = TRUE)
+
+#change labels
+levels(data_long$GradeCat) <- c("Overall Score", "Code Type Score", "Code Answer Score")
+
+#now usual ggplot2 density plot
+#now usual ggplot2 density plot
+outcomes_density <- ggplot2::ggplot(data = data_long, aes(x = score, color = GradeCat, fill = GradeCat)) +
+                          geom_density(alpha = 0.4) +
+                          facet_wrap(~ GradeCat) +
+                          scale_x_continuous(labels = scales::percent) +
+                          labs(x = "Percent of Correct Responses",
+                               y = "Density") +
+                          theme(legend.position="none")
+
+outcomes_density
+
+#save file
+outcomes_density_fig_file = here("results", "eda", "outcomes_density.png")
+ggsave(filename = outcomes_density_fig_file, plot = outcomes_density)
+```
+Looking at the distributions, they're all relatively similar. I think it makes the most sense to move forward with grade for the code answer.
+
+Therefore, let's make a distribution plot of code answer accuracy
+```{r code answer distribution}
+#find mean of code answer
+mean(EDAdata$`CodeScore`)
+
+#find standard deviation of code answer
+sd(EDAdata$`CodeScore`)
+
+# Histogram
+codegrade_plot <- EDAdata %>% 
+                    ggplot(aes(x = CodeScorePct)) +
+                    geom_histogram(aes(y = ..count..), 
+                                   binwidth = 10, 
+                                   alpha = 0.85,
+                                   fill = "#6F99ADFF",
+                                   color = "#4A6673") +
+                    geom_vline(xintercept = mean(EDAdata$CodeScorePct, na.rm=T), 
+                               linetype = 2) + 
+                    annotate("text", x = mean(EDAdata$CodeScore, na.rm=T), 
+                                     y = 0, 
+                                     label = "Mean = 44.37%", 
+                                     vjust = -30, 
+                                     hjust = -2.6,
+                             family = "Palatino Linotype") +
+                    scale_x_continuous(breaks = seq(0, 100, by = 10)) + 
+                    coord_cartesian(xlim = c(0,100)) +
+                    scale_y_continuous(expand = c(0,0),
+                                       limits = c(0, 100)) +
+                    labs(y = "Number of Participants", 
+                         x = "Code Identification Accuracy (%)") +
+                    theme(axis.text = element_text(color = "black"),
+                          text = element_text(family = "Palatino Linotype"))
+
+codegrade_plot
+
+#save plot
+code_grade_plot = here::here("results", "eda", "code_grade_plot.png")
+ggsave(filename = code_grade_plot, 
+       plot = codegrade_plot,
+       dpi = 300)
+```
+
+---
+
+
+---
+
+## Tables
+Make the summary tables for the manuscript. 
+
+### Participant Demographics Table
+
+Variables to include:
+
+* FacilityLabel
+* PositionType
+* ShiftType,
+* FacilityYears,
+* HealthcareYears
+* FacilitiesNumber
+
+```{r demographics table}
+#create table
+demographics_table <- EDAdata %>%
+                        dplyr::select(c(FacilityLabel,
+                                        PositionType,
+                                        ShiftType,
+                                        FacilityYears,
+                                        HealthcareYears,
+                                        FacilitiesNumber)) %>%
+                        gtsummary::tbl_summary(by = FacilityLabel,
+                                               statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                                                all_categorical() ~ "{n} ({p}%)"),
+                                               digits = all_continuous() ~ 2,
+                                               type = all_dichotomous() ~ "categorical") %>%
+                        gtsummary::add_overall(last = TRUE) %>%
+                        gtsummary::modify_header(label ~ " ") %>%
+                        gtsummary::modify_spanning_header(c("stat_1", "stat_2", "stat_3", "stat_4", "stat_5") ~ "**Facility**") %>%
+                        gtsummary::bold_labels() %>%
+                        gtsummary::modify_caption("Table 1. Survey participant demographic characteristics")
+
+demographics_table
+
+#save as RDS
+demographics_file = here::here("results", "demographics_table.Rds")
+
+saveRDS(demographics_table, file = demographics_file)
+
+```
+
+---
+
+### Experience with Codes Table
+
+Variables to include:
+
+* Facility-Label
+* CodeProcedures
+* Codeconfusion
+* Facilitiesdifferentcodes
+* CodePreference
+* Codeexceptions
+* TrainingOrientation
+* TrainingExercises
+* TrainingYearly
+* Traininglasttime
+
+```{r code experience table}
+#create table
+experience_table <- EDAdata %>%
+                        dplyr::select(c(FacilityLabel,
+                                        CodeProcedures,
+                                        Codeconfusion,
+                                        Facilitiesdifferentcodes,
+                                        CodePreference,
+                                        Codeexceptions,
+                                        TrainingOrientation,
+                                        TrainingExercises,
+                                        TrainingYearly,
+                                        Traininglasttime)) %>%
+                        gtsummary::tbl_summary(by = FacilityLabel,
+                                               statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                                                all_categorical() ~ "{n} ({p}%)"),
+                                               digits = all_continuous() ~ 2,
+                                               type = all_dichotomous() ~ "categorical") %>%
+                        gtsummary::add_overall(last = TRUE) %>%
+                        gtsummary::modify_header(label ~ " ") %>%
+                        gtsummary::modify_spanning_header(c("stat_1", "stat_2", "stat_3", "stat_4", "stat_5") ~ "**Facility**") %>%
+                        gtsummary::bold_labels() %>%
+                        gtsummary::modify_caption("Table 2. Survey participant experience with emergency codes")
+
+experience_table
+
+#save as RDS
+experience_file = here::here("results", "experience_table.Rds")
+
+saveRDS(experience_table, file = experience_file)
+```
+
+

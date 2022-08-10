@@ -1,0 +1,425 @@
+---
+title: "Analysis: Answer Key Table"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports combined processed dataframe and prepares it for analysis of the confidence scores and code identification scores.
+
+The workflow includes the following steps:
+
+1. Drop variables relating to specific codes
+2. Categorize all variables as 0, 1, 2, ...
+3. Convert Code Identification score to percentage
+4. Define `delta` to be change in confidence score
+5. Drop any remaining unnecessary variables
+6. Save newly processed dataframe for analysis
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* table1: for labeling variable names
+* writexl: for exporting excel files
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here) #to set paths
+library(tidyverse) #for data processing
+library(table1) #for labeling variable names
+library(writexl) #for exporting excel files
+```
+
+---
+
+## Load Data
+Load the answer key .csv from the `raw_data` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "combined_processed.rds")
+
+#load data
+processed <- readRDS(data_location)
+```
+
+---
+
+## 1. Drop Varaibles relating to specific codes
+```{r drop codes}
+#drop specific code columns
+analysis_1 <- processed %>%
+                  dplyr::select(-c("percent-completed"))
+
+#remove dashes from column names
+names(analysis_1) <- gsub("-", "", names(analysis_1))
+```
+
+---
+
+## 2. Discretize / categorize variables
+Going one by one through the variables, we will define factors and labels.
+
+**FacilityLabel**
+```{r facility label}
+#categories and counts
+table(analysis_1$FacilityLabel)
+
+#assign levels of factor
+analysis_1$FacilityLabel <- factor(analysis_1$FacilityLabel,
+                                   levels = c("A", "B", "C", "D", "E"))
+
+#label variable
+table1::label(analysis_1$FacilityLabel) <- "Facility"
+  
+```
+<br>
+
+**ClinicalNon**
+```{r clinicalnon}
+#categories and counts
+table(analysis_1$ClinicalNon)
+
+#assign levels of factor
+analysis_1$ClinicalNon <- factor(analysis_1$ClinicalNon,
+                                   levels = c("Clinical", "Non-clinical"))
+
+#label variable
+table1::label(analysis_1$ClinicalNon) <- "Position Type"
+```
+
+<br>
+
+**HealthcareYears**
+```{r healthcare years}
+#categories and counts
+table(analysis_1$HealthcareYears)
+
+#assign levels of factor
+analysis_1$HealthcareYears <- factor(analysis_1$HealthcareYears,
+                                     levels = c("0-2 years", "2-5 years", "5-8 years", "> 8 years"))
+
+#label variable
+table1::label(analysis_1$HealthcareYears) <- "Healthcare Experience"
+```
+
+<br>
+
+**FacilityYears**
+```{r facility years}
+#this is a continuous variable, so we need to first figure out appropriate categories
+summary(analysis_1$FacilityYears)
+
+#we can just use the same categories as healthcare experience: 0-2, 2-5, 5-8, > 8
+#assign categories
+analysis_1$FacilityYears <- cut(analysis_1$FacilityYears,
+                                breaks = c(-Inf, 2, 5, 8, Inf),
+                                labels = c("0-2 years", "2-5 years", "5-8 years", "> 8 years"))
+
+#categories and counts
+table(analysis_1$FacilityYears)
+
+#assign levels of factor -- already taken care of in previous step
+
+#label variable
+table1::label(analysis_1$FacilityYears) <- "Facility Experience"
+```
+
+<br>
+
+**FacilitiesNumber**
+```{r facilities number}
+#this is a continuous variable, so we need to first figure out appropriate categories
+summary(analysis_1$FacilitiesNumber)
+
+#0 facilities corresponds to researchers validating data, so remove them
+analysis_2 <- subset(analysis_1,
+                     analysis_1$FacilitiesNumber != 0)
+
+#use: "1 facility, 2-3 facilities, 3-5 facilities, > 5 facilities
+analysis_2$FacilitiesNumber <- cut(analysis_2$FacilitiesNumber,
+                                   breaks = c(-Inf, 1.9, 3.9, 5, Inf),
+                                   labels = c("1 facility", "2-3 facilities", "4-5 facilities", "> 5 facilities"))
+
+#categories and counts
+table(analysis_2$FacilitiesNumber)
+
+#assign levels of factor -- already taken care of in previous step
+
+#label variable
+table1::label(analysis_2$FacilitiesNumber) <- "Total Facilities in Career"
+```
+
+<br>
+
+**ShiftType**
+```{r shift type}
+#categories and counts
+table(analysis_2$ShiftType)
+
+#assign levels of factor
+analysis_2$ShiftType <- factor(analysis_2$ShiftType,
+                               levels = c("Day Shift", "Night Shift", "Equal times on both shifts"))
+
+#label variable
+table1::label(analysis_2$ShiftType) <- "Typical Shift"
+```
+
+<br>
+
+**ECYN**
+```{r ecyn}
+#categories and counts
+table(analysis_2$ECYN)
+
+#assign levels of factor
+analysis_2$ECYN <- factor(analysis_2$ECYN,
+                          levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$ECYN) <- "Knowledge of Code Activation Procedures"
+```
+
+<br>
+
+**PLcodes**
+```{r PL codes}
+#categories and counts
+table(analysis_2$PLcodes)
+
+#assign levels of factor
+analysis_2$PLcodes <- factor(analysis_2$PLcodes,
+                             levels = c("Color Codes", "Plain Language"))
+
+#label variable
+table1::label(analysis_2$PLcodes) <- "Code Type Preference"
+```
+
+<br>
+
+**Codeexceptions**
+```{r code exceptions}
+#categories and counts
+table(analysis_2$Codeexceptions)
+
+#assign levels of factor
+analysis_2$Codeexceptions <- factor(analysis_2$Codeexceptions,
+                                    levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$Codeexceptions) <- "Exceptions for Plain Language Codes"
+```
+
+<br>
+
+**TrainingOrientation**
+```{r training orientation}
+#categories and counts
+table(analysis_2$TrainingOrientation)
+
+#assign levels of factor
+analysis_2$TrainingOrientation <- factor(analysis_2$TrainingOrientation,
+                                  levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$TrainingOrientation) <- "Training at Orientation"
+```
+
+<br>
+
+**TrainingYearly**
+```{r training yearly}
+#categories and counts
+table(analysis_2$TrainingYearly)
+
+#assign levels of factor
+analysis_2$TrainingYearly <- factor(analysis_2$TrainingYearly,
+                                    levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$TrainingYearly) <- "Annual Training"
+```
+
+<br>
+
+**TrainingExercises**
+```{r training exercises}
+#categories and counts
+table(analysis_2$TrainingExercises)
+
+#assign levels of factor
+analysis_2$TrainingExercises <- factor(analysis_2$TrainingExercises,
+                                       levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$TrainingExercises) <- "Training During Drills/Exercises"
+```
+
+<br>
+
+**Traininglasttime**
+```{r training last time}
+#categories and counts
+table(analysis_2$Traininglasttime)
+
+#assign levels of factor
+analysis_2$Traininglasttime <- factor(analysis_2$Traininglasttime,
+                                      levels = c("< 1 month", "1-6 months", "6-12 months", "> 1 year"))
+
+#label variable
+table1::label(analysis_2$Traininglasttime) <- "Time Since Last Training"
+```
+
+<br>
+
+**Facilitiesdifferentcodes**
+```{r facilities different codes}
+#categories and counts
+table(analysis_2$Facilitiesdifferentcodes)
+
+#assign levels of factor
+analysis_2$Facilitiesdifferentcodes <- factor(analysis_2$Facilitiesdifferentcodes,
+                                              levels = c("No", "Yes", "Maybe"))
+
+#label variable
+table1::label(analysis_2$Facilitiesdifferentcodes) <- "Worked at a Facility with Different Color Codes"
+```
+
+<br>
+
+**Codeconfusion**
+```{r code confusion}
+#categories and counts
+table(analysis_2$Codeconfusion)
+
+#assign levels of factor
+analysis_2$Codeconfusion <- factor(analysis_2$Codeconfusion,
+                                   levels = c("No", "Yes"))
+
+#label variable
+table1::label(analysis_2$Codeconfusion) <- "Witnessed Code Confusion"
+```
+
+---
+
+## 3. Convert `GradeAnswer` to percentage
+```{r grade answer}
+#multiply by 100 (but creating dummy variable just in case)
+analysis_2$GradeAnswerPct <- analysis_2$GradeAnswer * 100
+
+#label variables
+table1::label(analysis_2$GradeAnswer) <- "Code Identification Score"
+table1::label(analysis_2$GradeAnswerPct) <- "Code Identification Score (%)"
+```
+
+---
+
+## 4. Define `Delta` as change in confidence score
+```{r confidence scores}
+#define delta
+analysis_2$Delta <- analysis_2$PostConfidence - analysis_2$PreConfidence
+
+#label variables
+table1::label(analysis_2$PreConfidence) <- "Pre-Survey Confidence Score"
+table1::label(analysis_2$PostConfidence) <- "Post-Survey Confidence Score"
+table1::label(analysis_2$Delta) <- "Change in Confidence Score"
+```
+
+---
+
+## 5. Drop remaining unnecessary columns
+We'll make two dataframes. One with all of the variables, and one for the scoring / regression analysis.
+
+For the scoring / regression analysis, this includes:
+
+* percentcompleted
+* ECE
+* PLcodeswhy
+* CodeexceptionsID
+* TrainingOtherCat
+* Trainingother
+
+Also rename variables:
+
+* ClinicalNon --> PositionType
+* ECYN --> CodeProcedures
+* PLcodes --> CodePreference
+* GradeAnswer --> CodeScore
+* GradeAnswerPct --> CodeScorePct
+
+
+We'll also reorder the columns in a way that makes sense
+```{r column cleaning}
+#rename columns
+analysis_3 <- analysis_2 %>%
+                dplyr::rename(PositionType = ClinicalNon,
+                              CodeProcedures = ECYN,
+                              CodePreference = PLcodes,
+                              CodeScore = GradeAnswer,
+                              CodeScorePct = GradeAnswerPct)
+
+#select columns to keep for scoring/regression analysis
+analysis_4 <- analysis_3 %>%
+                dplyr::select(c("FacilityLabel",
+                                "PositionType",
+                                "ShiftType",
+                                "FacilityYears",
+                                "HealthcareYears",
+                                "FacilitiesNumber",
+                                "CodeProcedures",
+                                "Codeconfusion",
+                                "Facilitiesdifferentcodes",
+                                "CodePreference",
+                                "Codeexceptions",
+                                "TrainingOrientation",
+                                "TrainingExercises",
+                                "TrainingYearly",
+                                "Traininglasttime",
+                                "PreConfidence",
+                                "PostConfidence",
+                                "Delta",
+                                "CodeScore",
+                                "CodeScorePct"))
+```
+
+---
+
+## 6. Save Processed Data
+We can now save the combined dataset.
+```{r save cleaned dataset}
+#make a copy of last iteration in case other steps have to be added later
+full_processed <- analysis_3
+
+#location to save dataframe
+analysis_processed_location <- here::here("data", "processed_data", "full_processed.rds")
+analysis_processed_location2 <- here::here("data", "processed_data", "full_processed.xlsx")
+
+#save data as RDS
+saveRDS(full_processed, file = analysis_processed_location)
+
+#export as Excel file
+writexl::write_xlsx(full_processed, analysis_processed_location2)
+
+#make a copy of last iteration in case other steps have to be added later
+analysis_processed <- analysis_4
+
+#location to save dataframe
+analysis_processed_location3 <- here::here("data", "processed_data", "analysis_processed.rds")
+analysis_processed_location4 <- here::here("data", "processed_data", "analysis_processed.xlsx")
+
+#save data as RDS
+saveRDS(analysis_processed, file = analysis_processed_location3)
+
+#export as Excel file
+writexl::write_xlsx(analysis_processed, analysis_processed_location4)
+```

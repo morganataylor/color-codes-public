@@ -1,0 +1,4 @@
+"0","#only keep if percent completion is 100%"
+"0","overall_3 <- overall_2[overall_2$`percent-completed` == 100, ]"
+"0",""
+"0","overall_4 <- overall_3[overall_3$`Facility-Years` < 152, ]"

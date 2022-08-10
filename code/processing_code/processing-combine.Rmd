@@ -1,0 +1,178 @@
+---
+title: "Data Processing: Combining All"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+
+<br>
+
+---
+
+## Introduction
+This markdown loads the graded dataframes for each facility and combines them into one overall dataset.
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* readxl: for importing Excel data
+* skimr: for data summarization
+* tidyverse: for using all packages in the Tidyverse for data wrangling (ggplot2, dplyr, tidyr, readr, purr, tibble, stringr, and forcats)
+* stringr: for filtering training variable
+
+```{r libraries, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(readxl)
+library(skimr)
+library(tidyverse)
+library(stringr)
+```
+
+---
+
+## Load Graded Facility Data
+Load the graded data saved in the `graded_data` folder.
+```{r load data}
+#define path to data
+data_location1 <- here::here("data","graded_data","FacilityA_grades_processed.xlsx")
+data_location2 <- here::here("data", "graded_data", "FacilityB_grades_processed.xlsx")
+data_location3 <- here::here("data", "graded_data", "FacilityC_grades_processed.xlsx")
+data_location4 <- here::here("data", "graded_data", "FacilityD_grades_processed.xlsx")
+data_location5 <- here::here("data", "graded_data", "FacilityE_grades_processed.xlsx")
+
+#load data
+FacilityA <- readxl::read_xlsx(data_location1, sheet = "Sheet1")
+FacilityB <- readxl::read_xlsx(data_location2, sheet = "Sheet1")
+FacilityC <- readxl::read_xlsx(data_location3, sheet = "Sheet1")
+FacilityD <- readxl::read_xlsx(data_location4, sheet = "Sheet1")
+FacilityE <- readxl::read_xlsx(data_location5, sheet = "Sheet1")
+
+```
+
+---
+
+## Column Names
+Before we can combine the DFs, we need to make sure all of the DFs have the same column names. We are using `FacilityB` as the reference one as an arbitrary choice.
+```{r same column names}
+names(FacilityA) <- names(FacilityB)
+names(FacilityC) <- names(FacilityB)
+names(FacilityD) <- names(FacilityB)
+names(FacilityE) <- names(FacilityB)
+```
+
+---
+
+## Combine Graded DF
+Now we can combine the six graded data frames into one overall dataset.
+```{r combine facility dfs}
+overall_1 <- rbind(FacilityA, FacilityB, FacilityC, FacilityD, FacilityE)
+```
+
+---
+
+## Cleaning Variables
+We need to streamline the more open-ended answers so that they have a common format.
+```{r data cleaning}
+#EC-YN variable
+overall_1$`EC-YN`[overall_1$`EC-YN` == "NO"] <- "No"
+overall_1$`EC-YN`[overall_1$`EC-YN` == "YES (If so, please explain.)"] <- "Yes"
+
+#PL-codes variable
+overall_1$`PL-codes`[overall_1$`PL-codes` == "NO, color codes are better."] <- "Color Codes"
+overall_1$`PL-codes`[overall_1$`PL-codes` == "NO, color codes are better. (If so, why?)"] <- "Color Codes"
+overall_1$`PL-codes`[overall_1$`PL-codes` == "YES, I would prefer plain language codes.  (If so, why?)
+"] <- "Plain Language"
+overall_1$`PL-codes`[overall_1$`PL-codes` == "YES, I would prefer plain language codes.  (If so, why?)"] <- "Plain Language"
+overall_1$`PL-codes`[overall_1$`PL-codes` == "NOT APPLICABLE, my facility already utilizes plain language codes."] <- "Plain Language"
+overall_1$`PL-codes`[overall_1$`PL-codes` == "NOT APPLICABLE,  my facility already utilizes plain language codes."] <- "Plain Language"
+
+#Code-exceptions variable
+overall_1$`Code-exceptions`[overall_1$`Code-exceptions` == "NO (Plain language should be used for all codes.)"] <- "No"
+overall_1$`Code-exceptions`[overall_1$`Code-exceptions` == "YES (If so, which specific codes should remain colors?)"] <- "Yes"
+
+#Training-last-time variable
+overall_1$`Training-last-time`[overall_1$`Training-last-time` == "Within the last month"] <- "< 1 month"
+overall_1$`Training-last-time`[overall_1$`Training-last-time` == "1-6 months ago"] <- "1-6 months"
+overall_1$`Training-last-time`[overall_1$`Training-last-time` == "6 months - 1 year ago"] <- "6-12 months"
+overall_1$`Training-last-time`[overall_1$`Training-last-time` == "More than 1 year ago"] <- "> 1 year"
+
+#Training -- we have to first create separate variables for each training category
+overall_1$`Training-Orientation` <- stringr::str_count(overall_1$Training, "Training during employee orientation")
+overall_1$`Training-Yearly` <- stringr::str_count(overall_1$Training, "Yearly refresher training")
+overall_1$`Training-Exercises` <- stringr::str_count(overall_1$Training, "Drills and exercises")
+overall_1$`Training-OtherCat` <- stringr::str_count(overall_1$Training, "Other (indicate below)")
+
+#now convert all of them to yes/no variables
+overall_1$`Training-Orientation`[overall_1$`Training-Orientation` == 1] <- "Yes"
+overall_1$`Training-Orientation`[overall_1$`Training-Orientation` == 0] <- "No"
+
+overall_1$`Training-Yearly`[overall_1$`Training-Yearly` == 1] <- "Yes"
+overall_1$`Training-Yearly`[overall_1$`Training-Yearly` == 0] <- "No"
+
+overall_1$`Training-Exercises`[overall_1$`Training-Exercises` == 1] <- "Yes"
+overall_1$`Training-Exercises`[overall_1$`Training-Exercises` == 0] <- "No"
+
+overall_1$`Training-OtherCat`[overall_1$`Training-OtherCat` == 1] <- "Yes"
+overall_1$`Training-OtherCat`[overall_1$`Training-OtherCat` == 0] <- "No"
+```
+
+We need to reorder the columns after introducing the new training variables.
+```{r reorder columns}
+overall_2 <- overall_1 %>%
+                dplyr::select(`Facility-Label`:`Code-exceptions-ID`,
+                              `Training-Orientation`,
+                              `Training-Yearly`,
+                              `Training-Exercises`,
+                              `Training-OtherCat`,
+                              `Training-other`,
+                              `Training-last-time`,
+                              `Facilities-different-codes`,
+                              `Code-confusion`,
+                              `Post-Confidence`)
+```
+
+Before saving the processed dataset, let's look at the summary to see if there's anything else we need to clean.
+```{r processed overview check}
+#use the skimr package as the base R summary function won't tell us much
+skimr::skim(overall_2)
+```
+
+---
+
+## Final Adjustments
+The variables are all of the right class. The only adjustment is to drop the one observation that does not have a 100% completion of the survey.
+Row 54 corresponds to one of the members of the research team testing the survey and does not actually represent a participant. Therefore, it needs to be removed.
+
+We need to also remove the observation with 152 years worked at the facility.
+```{r remove false data}
+#only keep if percent completion is 100%
+overall_3 <- overall_2[overall_2$`percent-completed` == 100, ]
+
+overall_4 <- overall_3[overall_3$`Facility-Years` < 152, ]
+```
+
+---
+
+## Save Overall DF
+We can now save the combined dataset.
+```{r save cleaned dataset}
+#make a copy of last iteration in case other steps have to be added later
+overall_processed <- overall_4
+
+#location to save dataframe
+overall_processed_location <- here::here("data", "processed_data", "combined_processed.rds")
+overall_processed_location2 <- here::here("data", "processed_data", "combined_processed.xlsx")
+
+#save data as RDS
+saveRDS(overall_processed, file = overall_processed_location)
+
+#export as Excel file
+writexl::write_xlsx(overall_processed, overall_processed_location2)
+```

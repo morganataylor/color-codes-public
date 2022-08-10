@@ -1,0 +1,150 @@
+---
+title: "Analysis: MVR for Code Identification Score"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed data and conducts a multivariate analysis for predictors with < 0.01 significance in the univariate analysis.
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* broom: for making prettier outputs of regressions
+* gtsummary: for making summary tables
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(tidyverse)
+library(broom)
+library(gtsummary)
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+ggplot2::theme_update(plot.title = element_text(hjust = 0.5))
+
+#set gtsummary theme
+gtsummary::theme_gtsummary_compact()
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "analysis_processed.rds")
+
+#load data
+score_data <- readRDS(data_location)
+```
+
+---
+
+## MVR Analysis: All Variables
+```{r MVR all}
+#subset data to include only variables with < 0.01 significance
+mvr_data <- score_data %>%
+              dplyr::select(FacilityLabel,
+                            ShiftType,
+                            FacilityYears,
+                            HealthcareYears,
+                            FacilitiesNumber,
+                            CodeProcedures,
+                            Facilitiesdifferentcodes,
+                            CodePreference,
+                            Codeexceptions,
+                            TrainingOrientation,
+                            TrainingExercises,
+                            TrainingYearly,
+                            CodeScorePct)
+
+#MVR with all variables
+mvr_fit <- stats::glm(CodeScorePct ~ . , data = mvr_data)
+
+#MVR summary
+summary(mvr_fit)
+
+broom::tidy(mvr_fit)
+
+broom::glance(mvr_fit)
+```
+In this model, Facilities B/C/D, 4-5 facilities worked, Knowledge of Activation Procedure for Codes, and training at orientation are significant. Facility E, 2-5 years at facility, >5 facilities, and exceptions to plain language are marginally significant.
+
+R squared = 0.439
+logLik = -1242.14
+AIC = 2536.28
+BIC = 2632.923
+
+---
+
+## Create Regression Summary Table
+```{r regression table}
+uvregression_table <- score_data %>%
+                        gtsummary::select(FacilityLabel,
+                                          PositionType,
+                                          ShiftType,
+                                          FacilityYears,
+                                          HealthcareYears,
+                                          FacilitiesNumber,
+                                          CodeProcedures,
+                                          Codeconfusion,
+                                          Facilitiesdifferentcodes,
+                                          CodePreference,
+                                          Codeexceptions,
+                                          TrainingOrientation,
+                                          TrainingExercises,
+                                          TrainingYearly,
+                                          Traininglasttime,
+                                          CodeScorePct) %>%
+                        gtsummary::tbl_uvregression(method = glm,
+                                                    y = CodeScorePct,
+                                                    estimate_fun = ~ gtsummary::style_sigfig(.x, digits = 3),
+                                                    pvalue_fun = ~ gtsummary::style_pvalue(.x, digits = 2)) %>%
+                        gtsummary::bold_p(t = 0.05) %>%
+                        gtsummary::bold_labels()
+
+uvregression_table
+
+#significant variables: Facility, ShiftType, FacilityYears, HealthcareYears, FacilitiesNumber, CodeProcedures, Facilitiesdifferentcodes, CodePreference, Codeexceptions, TrainingOrientation, TrainingExercises, TrainingYearly
+#build mvr table
+mvr_table <- mvr_fit %>%            
+                gtsummary::tbl_regression(estimate_fun = ~ gtsummary::style_sigfig(.x, digits = 3),
+                                          pvalue_fun = ~ gtsummary::style_pvalue(.x, digits = 2)) %>%
+                gtsummary::bold_labels() %>%
+                gtsummary::bold_p(t = 0.05)
+mvr_table
+
+#merge tables
+regression_table <- gtsummary::tbl_merge(list(uvregression_table,
+                                              mvr_table),
+                                              tab_spanner = c("**Univariate**", 
+                                                             "**Multivariate**")) %>%
+                    gtsummary::modify_caption("Table 5. Results of regression analyses for code identification score. Only variables significantly associated with code identification score (< 0.05) were included in the multivariate regression.") %>%
+                    gtsummary::modify_header(label ~ " ")
+regression_table
+
+#save table
+regression_tbl_file = here::here("results", "regression_table.Rds")
+
+saveRDS(regression_table, file = regression_tbl_file)
+```
+

@@ -1,0 +1,741 @@
+---
+title: "Analysis: Bivariate Analysis for Experience with Code Variables"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed analysis data and conducts a bivariate analysis for the outcomes of interest: change in confidence score and code identification score.
+
+The following variables representing experience with codes are included:
+
+* CodeProcedures
+* Codeconfusion
+* Facilitiesdifferentcodes
+* CodePreference
+* Codeexceptions
+* TrainingOrientation
+* TrainingExercises
+* TrainingYearly
+* Traininglasttime
+
+For each variable, the following steps are taken:
+
+* Summary statistics
+* ANOVA
+* ANOVA with Tukey correction
+* Box Plot Visualization if significant
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* rstatix: for summary stats
+* agricolae: for more detailed output of Tukey HSD
+* broom: for making prettier outputs of regressions
+* ggpubr: for making box plots of significant variables
+* gtsummary: for making summary tables
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(tidyverse)
+library(rstatix)
+library(agricolae)
+library(broom)
+library(ggpubr)
+library(gtsummary)
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+ggplot2::theme_update(plot.title = element_text(hjust = 0.5))
+
+#set gtsummary theme
+gtsummary::theme_gtsummary_compact()
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "analysis_processed.rds")
+
+#load data
+analysis_data <- readRDS(data_location)
+```
+
+---
+
+## Code Identification Score
+Each variable will be analyzed where y = `CodeScorePct` (the percent of correctly identified codes during the survey).
+
+---
+
+### Code Procedures
+
+1. Summary Statistics
+```{r code procedures summary statistics code ID}
+procedures_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(CodeProcedures) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+procedures_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r code procedures anova code ID}
+procedures_anova1 <- stats::aov(CodeScorePct ~ CodeProcedures, data = analysis_data)
+
+summary(procedures_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code procedures tukey code ID}
+procedures_tukey1 <- agricolae::HSD.test(procedures_anova1, trt = "CodeProcedures")
+
+procedures_tukey1
+```
+
+There is a significant difference between the means. 
+
+---
+
+### Code confusion
+
+1. Summary Statistics
+```{r code confusion summary statistics code ID}
+confusion_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(Codeconfusion) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+confusion_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r code confusion anova code ID}
+confusion_anova1 <- stats::aov(CodeScorePct ~ Codeconfusion, data = analysis_data)
+
+summary(confusion_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code confusion tukey code ID}
+confusion_tukey1 <- agricolae::HSD.test(confusion_anova1, trt = "Codeconfusion")
+
+confusion_tukey1
+```
+There is not a significant difference in the mean code identification score by code confusion.
+
+---
+
+### Facilities with different codes
+
+1. Summary Statistics
+```{r facilities diff summary statistics code ID}
+facdiff_sum_stats1 <- analysis_data %>%
+                        dplyr::group_by(Facilitiesdifferentcodes) %>%
+                        rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+facdiff_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r facilities diff anova code ID}
+facdiff_anova1 <- stats::aov(CodeScorePct ~ Facilitiesdifferentcodes, data = analysis_data)
+
+summary(facdiff_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facilities diff tukey code ID}
+facdiff_tukey1 <- agricolae::HSD.test(facdiff_anova1, trt = "Facilitiesdifferentcodes")
+
+facdiff_tukey1
+```
+There is not a significant difference in the mean code identification score by facilities with different codes.
+
+---
+
+### Code Preference
+
+1. Summary Statistics
+```{r code preference summary statistics code ID}
+preference_sum_stats1 <- analysis_data %>%
+                            dplyr::group_by(CodePreference) %>%
+                            rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+preference_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r code preference anova code ID}
+preference_anova1 <- stats::aov(CodeScorePct ~ CodePreference, data = analysis_data)
+
+summary(preference_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code preference tukey code ID}
+preference_tukey1 <- agricolae::HSD.test(preference_anova1, trt = "CodePreference")
+
+preference_tukey1
+```
+
+There is a significant difference in the mean score between those who prefer color codes and those who prefer plain language codes.
+
+---
+
+### Codeexceptions
+
+1. Summary Statistics
+```{r code exceptions summary statistics code ID}
+exceptions_sum_stats1 <- analysis_data %>%
+                              dplyr::group_by(Codeexceptions) %>%
+                              rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+exceptions_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r code exceptions anova code ID}
+exceptions_anova1 <- stats::aov(CodeScorePct ~ Codeexceptions, data = analysis_data)
+
+summary(exceptions_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code exceptions tukey code ID}
+exceptions_tukey1 <- agricolae::HSD.test(exceptions_anova1, trt = "Codeexceptions")
+
+exceptions_tukey1
+```
+There is a significant difference in the mean score for those who believe some codes should remain color and those who believe all codes should be plain language.
+
+---
+
+### TrainingOrientation
+
+1. Summary Statistics
+```{r orientation summary statistics code ID}
+orientation_sum_stats1 <- analysis_data %>%
+                              dplyr::group_by(TrainingOrientation) %>%
+                              rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+orientation_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r orientation anova code ID}
+orientation_anova1 <- stats::aov(CodeScorePct ~ TrainingOrientation, data = analysis_data)
+
+summary(orientation_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r orientation tukey code ID}
+orientation_tukey1 <- agricolae::HSD.test(orientation_anova1, trt = "TrainingOrientation")
+
+orientation_tukey1
+```
+There is a significant difference in the mean of score by training at orientation.
+
+---
+
+### Training During Drills/Exercises
+
+1. Summary Statistics
+```{r exercises summary statistics code ID}
+exercises_sum_stats1 <- analysis_data %>%
+                              dplyr::group_by(TrainingExercises) %>%
+                              rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+exercises_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r exercises anova code ID}
+exercises_anova1 <- stats::aov(CodeScorePct ~ TrainingExercises, data = analysis_data)
+
+summary(exercises_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r exercises tukey code ID}
+exercises_tukey1 <- agricolae::HSD.test(exercises_anova1, trt = "TrainingExercises")
+
+exercises_tukey1
+```
+There is a significant difference in the mean of score by training during drills/exercises.
+
+---
+
+### Training Yearly
+
+1. Summary Statistics
+```{r yearly summary statistics code ID}
+yearly_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(TrainingYearly) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+yearly_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r yearly anova code ID}
+yearly_anova1 <- stats::aov(CodeScorePct ~ TrainingYearly, data = analysis_data)
+
+summary(yearly_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r yearly tukey code ID}
+yearly_tukey1 <- agricolae::HSD.test(yearly_anova1, trt = "TrainingYearly")
+
+yearly_tukey1
+```
+There is a significant difference in the mean of score by annual training.
+
+---
+
+### Training Last Time
+
+1. Summary Statistics
+```{r training last summary statistics code ID}
+lasttrain_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(Traininglasttime) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+lasttrain_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r lasttrain anova code ID}
+lasttrain_anova1 <- stats::aov(CodeScorePct ~ Traininglasttime, data = analysis_data)
+
+summary(lasttrain_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r lasttrain tukey code ID}
+lasttrain_tukey1 <- agricolae::HSD.test(lasttrain_anova1, trt = "Traininglasttime")
+
+lasttrain_tukey1
+```
+There is not a significant difference in mean score by date of last training.
+
+---
+
+## Change in Confidence Score
+Each variable will be analyzed where y = `Delta` (the change in confidence score pre/post survey).
+
+---
+
+### Code Procedures
+
+1. Summary Statistics
+```{r code procedures summary statistics conf score}
+procedures_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(CodeProcedures) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+procedures_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r code procedures anova conf score}
+procedures_anova2 <- stats::aov(Delta ~ CodeProcedures, data = analysis_data)
+
+summary(procedures_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code procedures tukey conf score}
+procedures_tukey2 <- agricolae::HSD.test(procedures_anova2, trt = "CodeProcedures")
+
+procedures_tukey2
+```
+
+There is not a significant difference between the means. 
+
+---
+
+### Code confusion
+
+1. Summary Statistics
+```{r code confusion summary statistics conf score}
+confusion_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(Codeconfusion) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+confusion_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r code confusion anova conf score}
+confusion_anova2 <- stats::aov(Delta ~ Codeconfusion, data = analysis_data)
+
+summary(confusion_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code confusion tukey conf score}
+confusion_tukey2 <- agricolae::HSD.test(confusion_anova2, trt = "Codeconfusion")
+
+confusion_tukey2
+```
+There is not a significant difference in the mean change in confidence score by code confusion.
+
+---
+
+### Facilities with different codes
+
+1. Summary Statistics
+```{r facilities diff summary statistics conf score}
+facdiff_sum_stats2 <- analysis_data %>%
+                        dplyr::group_by(Facilitiesdifferentcodes) %>%
+                        rstatix::get_summary_stats(Delta, type = "mean_sd")
+facdiff_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r facilities diff anova conf score}
+facdiff_anova2 <- stats::aov(Delta ~ Facilitiesdifferentcodes, data = analysis_data)
+
+summary(facdiff_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facilities diff tukey conf score}
+facdiff_tukey2 <- agricolae::HSD.test(facdiff_anova2, trt = "Facilitiesdifferentcodes")
+
+facdiff_tukey2
+```
+There is not a significant difference in the mean change in confidence score by facilities with different codes.
+
+---
+
+### Code Preference
+
+1. Summary Statistics
+```{r code preference summary statistics conf score}
+preference_sum_stats2 <- analysis_data %>%
+                            dplyr::group_by(CodePreference) %>%
+                            rstatix::get_summary_stats(Delta, type = "mean_sd")
+preference_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r code preference anova conf score}
+preference_anova2 <- stats::aov(Delta ~ CodePreference, data = analysis_data)
+
+summary(preference_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code preference tukey conf score}
+preference_tukey2 <- agricolae::HSD.test(preference_anova2, trt = "CodePreference")
+
+preference_tukey2
+```
+
+There is a not a significant difference between the means of change in confidence score.
+
+---
+
+### Codeexceptions
+
+1. Summary Statistics
+```{r code exceptions summary statistics conf score}
+exceptions_sum_stats2 <- analysis_data %>%
+                              dplyr::group_by(Codeexceptions) %>%
+                              rstatix::get_summary_stats(Delta, type = "mean_sd")
+exceptions_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r code exceptions anova conf score}
+exceptions_anova2 <- stats::aov(Delta ~ Codeexceptions, data = analysis_data)
+
+summary(exceptions_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r code exceptions tukey conf score}
+exceptions_tukey2 <- agricolae::HSD.test(exceptions_anova2, trt = "Codeexceptions")
+
+exceptions_tukey2
+```
+There is a not a significant difference between the means of change in confidence score.
+
+---
+
+### TrainingOrientation
+
+1. Summary Statistics
+```{r orientation summary statistics conf score}
+orientation_sum_stats2 <- analysis_data %>%
+                              dplyr::group_by(TrainingOrientation) %>%
+                              rstatix::get_summary_stats(Delta, type = "mean_sd")
+orientation_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r orientation anova conf score}
+orientation_anova2 <- stats::aov(Delta ~ TrainingOrientation, data = analysis_data)
+
+summary(orientation_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r orientation tukey conf score}
+orientation_tukey2 <- agricolae::HSD.test(orientation_anova2, trt = "TrainingOrientation")
+
+orientation_tukey2
+```
+There is a not a significant difference between the means of change in confidence score.
+
+---
+
+### Training During Drills/Exercises
+
+1. Summary Statistics
+```{r exercises summary statistics conf score}
+exercises_sum_stats2 <- analysis_data %>%
+                              dplyr::group_by(TrainingExercises) %>%
+                              rstatix::get_summary_stats(Delta, type = "mean_sd")
+exercises_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r exercises anova conf score}
+exercises_anova2 <- stats::aov(Delta ~ TrainingExercises, data = analysis_data)
+
+summary(exercises_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r exercises tukey conf score}
+exercises_tukey2 <- agricolae::HSD.test(exercises_anova2, trt = "TrainingExercises")
+
+exercises_tukey2
+```
+There is a not a significant difference between the means of change in confidence score.
+
+---
+
+### Training Yearly
+
+1. Summary Statistics
+```{r yearly summary statistics conf score}
+yearly_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(TrainingYearly) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+yearly_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r yearly anova conf score}
+yearly_anova2 <- stats::aov(Delta ~ TrainingYearly, data = analysis_data)
+
+summary(yearly_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r yearly tukey conf score}
+yearly_tukey2 <- agricolae::HSD.test(yearly_anova2, trt = "TrainingYearly")
+
+yearly_tukey2
+```
+There is a significant difference in the mean change in confidence score by annual training.
+
+---
+
+### Training Last Time
+
+1. Summary Statistics
+```{r training last summary statistics conf score}
+lasttrain_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(Traininglasttime) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+lasttrain_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r lasttrain anova conf score}
+lasttrain_anova2 <- stats::aov(Delta ~ Traininglasttime, data = analysis_data)
+
+summary(lasttrain_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r lasttrain tukey conf score}
+lasttrain_tukey2 <- agricolae::HSD.test(lasttrain_anova2, trt = "Traininglasttime")
+
+lasttrain_tukey2
+```
+There is a not a significant difference between the means of change in confidence score.
+
+---
+
+## Experience with Codes Table Summary
+The last step is to create a summary table for the experience variables with both the code identification score and the change in confidence score outcomes.
+```{r experience summary table}
+#construct table for bivariate analysis of code identification score
+experience_score <- analysis_data %>%
+                          gtsummary::tbl_continuous(variable = CodeScorePct,
+                                                    include = c(CodeProcedures,
+                                                                Codeconfusion,
+                                                                Facilitiesdifferentcodes,
+                                                                CodePreference,
+                                                                Codeexceptions,
+                                                                TrainingOrientation,
+                                                                TrainingExercises,
+                                                                TrainingYearly,
+                                                                Traininglasttime),
+                                                    statistic = list(everything() ~ "{mean} ({sd})"),
+                                                    digits = everything() ~ 1) %>%
+                          add_p(test = list(everything() ~ "aov")) %>%
+                          gtsummary::modify_header(stat_0 ~ "**Mean (SD)**") %>%
+                          gtsummary::modify_header(statistic ~ "**F**") %>%
+                          gtsummary::modify_fmt_fun(statistic ~ gtsummary::style_sigfig) %>%
+                          gtsummary::bold_labels() %>%
+                          gtsummary::modify_footnote(stat_0 ~ "Mean (Standard Deviation)")
+
+experience_score
+
+#construct table for bivariate analysis of confidence score
+experience_conf <- analysis_data %>%
+                          gtsummary::tbl_continuous(variable = Delta,
+                                                    include = c(CodeProcedures,
+                                                                Codeconfusion,
+                                                                Facilitiesdifferentcodes,
+                                                                CodePreference,
+                                                                Codeexceptions,
+                                                                TrainingOrientation,
+                                                                TrainingExercises,
+                                                                TrainingYearly,
+                                                                Traininglasttime),
+                                                    statistic = list(everything() ~ "{mean} ({sd})")) %>%
+                          add_p(test = list(everything() ~ "aov")) %>%
+                          gtsummary::modify_header(stat_0 ~ "**Mean (SD)**") %>%
+                          gtsummary::modify_header(statistic ~ "**F**") %>%
+                          gtsummary::modify_fmt_fun(statistic ~ gtsummary::style_sigfig) %>%
+                          gtsummary::bold_labels() %>%
+                          gtsummary::modify_footnote(stat_0 ~ "Mean (Standard Deviation)")
+
+experience_conf
+
+#construct table for summary numbers
+experience_count <- analysis_data %>%
+                          gtsummary::select(CodeProcedures,
+                                            Codeconfusion,
+                                            Facilitiesdifferentcodes,
+                                            CodePreference,
+                                            Codeexceptions,
+                                            TrainingOrientation,
+                                            TrainingExercises,
+                                            TrainingYearly,
+                                            Traininglasttime) %>%
+                          gtsummary::tbl_summary() %>%
+                          gtsummary::add_n() %>%
+                          gtsummary::modify_header(stat_0 ~ "**n (%)**") %>%
+                          gtsummary::modify_footnote(stat_0 ~ NA_character_) %>%
+                          gtsummary::bold_labels()
+experience_count
+
+#merge tables
+experience_summary <- gtsummary::tbl_merge(list(experience_count, experience_score, experience_conf),
+                                           tab_spanner = c(NA_character_, "**Code Identification Score (%)**", "**Change in Confidence Score**")) %>%
+                      gtsummary::modify_column_hide(n_1) %>%
+                      gtsummary::modify_caption("Table 4. Results of experience with emergency codes bivariate analyses with code identification score and change in confidence score (N = 304).") %>%
+                      gtsummary::modify_header(label ~ " ")
+
+experience_summary
+  
+```
+
+### Save Summary Table
+```{r save table}
+experience_summary_file = here::here("results", "experience_summary_table.Rds")
+
+saveRDS(experience_summary, file = experience_summary_file)
+```

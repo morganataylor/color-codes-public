@@ -1,0 +1,24 @@
+"0","#use the skimr package as the base R summary function won't tell us much"
+"0","skimr::skim(overall_2)"
+"1","-- Data Summary ------------------------
+"
+"1","                           Values   
+"
+"1","Name                       overall_2
+"
+"1","Number of rows             313      
+"
+"1","Number of columns          54       
+"
+"1","_______________________             
+"
+"1","Column type frequency:              
+"
+"1","  character                18       
+"
+"1","  numeric                  36       
+"
+"1","________________________            
+"
+"1","Group variables            None     
+"

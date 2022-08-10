@@ -1,0 +1,533 @@
+---
+title: "Analysis: Bivariate Analysis for Demographic Variables"
+output: 
+  html_document:
+    theme: flatly
+    toc: FALSE
+---
+<br>
+
+---
+
+## Introduction
+This markdown imports the processed analysis data and conducts a bivaraiate analysis for the outcomes of interest: change in confidence score and code identification score.
+
+For each variable, the following steps are taken:
+
+* Summary statistics
+* ANOVA
+* ANOVA with Tukey correction
+* Box Plot Visualization if significant
+
+---
+
+## Required Packages
+The following R packages are required for this script:
+
+* here: for path setting
+* tidyverse: for all packages in the Tidyverse (ggplot2, dyplr, tidyr, readr, purr, tibble, stringr, forcats)
+* rstatix: for summary stats
+* agricolae: for more detailed output of Tukey HSD
+* broom: for making prettier outputs of regressions
+* ggpubr: for making box plots of significant variables
+* gtsummary: for making summary tables
+
+```{r libraries, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#load required packages
+library(here)
+library(tidyverse)
+library(rstatix)
+library(agricolae)
+library(broom)
+library(ggpubr)
+library(gtsummary)
+
+#global environment options
+# formatting for script to avoid scientific notation output
+options(scipen=999)
+
+#set ggplot theme to classic
+ggplot2::theme_set(theme_classic())
+
+#center plot titles
+ggplot2::theme_update(plot.title = element_text(hjust = 0.5))
+
+#set gtsummary theme
+gtsummary::theme_gtsummary_compact()
+```
+
+---
+
+## Load Processed Data
+Load the data generated from the markdowns in the `processing_code` folder.
+```{r load data}
+#define file path
+data_location <- here::here("data", "processed_data", "analysis_processed.rds")
+
+#load data
+analysis_data <- readRDS(data_location)
+```
+
+---
+
+## Code Identification Score
+Each variable will be analyzed where y = `CodeScorePct` (the percent of correctly identified codes during the survey).
+
+---
+
+### Facility Label
+
+1. Summary Statistics
+```{r facility label summary statistics code ID}
+facility_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(FacilityLabel) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+facility_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r facility label anova code ID}
+facility_anova1 <- stats::aov(CodeScorePct ~ FacilityLabel, data = analysis_data)
+
+summary(facility_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facility label tukey code ID}
+facility_tukey1 <- agricolae::HSD.test(facility_anova1, trt = "FacilityLabel")
+
+facility_tukey1
+
+TukeyHSD(facility_anova1, "FacilityLabel")
+```
+
+At least one mean is different among the facilities. Significant difference between B/C and D and A/E.
+
+---
+
+### PositionType
+1. Summary Statistics
+```{r position type summary statistics code ID}
+position_sum_stats1 <- analysis_data %>%
+                          dplyr::group_by(PositionType) %>%
+                          rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+position_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r position type anova code ID}
+position_anova1 <- stats::aov(CodeScorePct ~ PositionType, data = analysis_data)
+
+summary(position_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r position type tukey code ID}
+position_tukey1 <- agricolae::HSD.test(position_anova1, trt = "PositionType")
+
+position_tukey1
+```
+There is not a significant difference in the mean code identification score by position type.
+
+---
+
+### ShiftType
+1. Summary Statistics
+```{r shift type summary statistics code ID}
+shift_sum_stats1 <- analysis_data %>%
+                        dplyr::group_by(ShiftType) %>%
+                        rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+shift_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r shift type anova code ID}
+shift_anova1 <- stats::aov(CodeScorePct ~ ShiftType, data = analysis_data)
+
+summary(shift_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r shift type tukey code ID}
+shift_tukey1 <- agricolae::HSD.test(shift_anova1, trt = "ShiftType")
+
+shift_tukey1
+```
+There is not a significant difference in the mean code identification score by shift type.
+
+---
+
+### FacilityYears
+1. Summary Statistics
+```{r facility years summary statistics code ID}
+facilityyrs_sum_stats1 <- analysis_data %>%
+                            dplyr::group_by(FacilityYears) %>%
+                            rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+facilityyrs_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r facility years anova code ID}
+facilityyrs_anova1 <- stats::aov(CodeScorePct ~ FacilityYears, data = analysis_data)
+
+summary(facilityyrs_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facility years tukey code ID}
+facilityyrs_tukey1 <- agricolae::HSD.test(facilityyrs_anova1, trt = "FacilityYears")
+
+facilityyrs_tukey1
+
+TukeyHSD(facilityyrs_anova1, "FacilityYears")
+```
+
+At least one group is significantly different than the others. Though it disappears after Tukey correction.
+
+---
+
+### HealthcareYears
+1. Summary Statistics
+```{r healthcare years summary statistics code ID}
+healthcareyrs_sum_stats1 <- analysis_data %>%
+                              dplyr::group_by(HealthcareYears) %>%
+                              rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+healthcareyrs_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r healthcare years anova code ID}
+healthcareyrs_anova1 <- stats::aov(CodeScorePct ~ HealthcareYears, data = analysis_data)
+
+summary(healthcareyrs_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r healthcare years tukey code ID}
+healthcareyrs_tukey1 <- agricolae::HSD.test(healthcareyrs_anova1, trt = "HealthcareYears")
+
+healthcareyrs_tukey1
+
+TukeyHSD(healthcareyrs_anova1, "HealthcareYears")
+```
+At least one mean is significantly different. 5-8 is different than 0-2 / 2-5 years.
+
+---
+
+### FacilitiesNumber
+1. Summary Statistics
+```{r facilities number summary statistics code ID}
+numfacilities_sum_stats1 <- analysis_data %>%
+                              dplyr::group_by(FacilitiesNumber) %>%
+                              rstatix::get_summary_stats(CodeScorePct, type = "mean_sd")
+numfacilities_sum_stats1
+```
+
+<br>
+
+2. ANOVA
+```{r facilities number anova code ID}
+numfacilities_anova1 <- stats::aov(CodeScorePct ~ FacilitiesNumber, data = analysis_data)
+
+summary(numfacilities_anova1)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facilities number tukey code ID}
+numfacilities_tukey1 <- agricolae::HSD.test(numfacilities_anova1, trt = "FacilitiesNumber")
+
+numfacilities_tukey1
+```
+There is not a significant difference in the mean of score by number of facilities worked.
+
+---
+
+## Change in Confidence Score
+Each variable will be analyzed where y = `Delta` (the change in confidence score pre/post survey).
+
+---
+
+### Facility Label
+
+1. Summary Statistics
+```{r facility label summary statistics conf score}
+facility_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(FacilityLabel) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+facility_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r facility label anova conf score}
+facility_anova2 <- stats::aov(Delta ~ FacilityLabel, data = analysis_data)
+
+summary(facility_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facility label tukey conf score}
+facility_tukey2 <- agricolae::HSD.test(facility_anova2, trt = "FacilityLabel")
+
+facility_tukey2
+```
+
+Facility is not significantly associated with change in confidence score.
+
+---
+
+### PositionType
+1. Summary Statistics
+```{r position type summary statistics conf score}
+position_sum_stats2 <- analysis_data %>%
+                          dplyr::group_by(PositionType) %>%
+                          rstatix::get_summary_stats(Delta, type = "mean_sd")
+position_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r position type anova conf score}
+position_anova2 <- stats::aov(Delta ~ PositionType, data = analysis_data)
+
+summary(position_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r position type tukey conf score}
+position_tukey2 <- agricolae::HSD.test(position_anova2, trt = "PositionType")
+
+position_tukey2
+```
+Position Type is not significantly associated with change in confidence score.
+
+---
+
+### ShiftType
+1. Summary Statistics
+```{r shift type summary statistics conf score}
+shift_sum_stats2 <- analysis_data %>%
+                        dplyr::group_by(ShiftType) %>%
+                        rstatix::get_summary_stats(Delta, type = "mean_sd")
+shift_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r shift type anova conf score}
+shift_anova2 <- stats::aov(Delta ~ ShiftType, data = analysis_data)
+
+summary(shift_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r shift type tukey conf score}
+shift_tukey2 <- agricolae::HSD.test(shift_anova2, trt = "ShiftType")
+
+shift_tukey2
+```
+
+Shift Type is not significantly associated with change in confidence score.
+
+---
+
+### FacilityYears
+1. Summary Statistics
+```{r facility years summary statistics conf score}
+facilityyrs_sum_stats2 <- analysis_data %>%
+                            dplyr::group_by(FacilityYears) %>%
+                            rstatix::get_summary_stats(Delta, type = "mean_sd")
+facilityyrs_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r facility years anova conf score}
+facilityyrs_anova2 <- stats::aov(Delta ~ FacilityYears, data = analysis_data)
+
+summary(facilityyrs_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facility years tukey conf score}
+facilityyrs_tukey2 <- agricolae::HSD.test(facilityyrs_anova2, trt = "FacilityYears")
+
+facilityyrs_tukey2
+```
+
+Facility years is not significantly associated with change in confidence score.
+
+---
+
+### HealthcareYears
+1. Summary Statistics
+```{r healthcare years summary statistics conf score}
+healthcareyrs_sum_stats2 <- analysis_data %>%
+                              dplyr::group_by(HealthcareYears) %>%
+                              rstatix::get_summary_stats(Delta, type = "mean_sd")
+healthcareyrs_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r healthcare years anova conf score}
+healthcareyrs_anova2 <- stats::aov(Delta ~ HealthcareYears, data = analysis_data)
+
+summary(healthcareyrs_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r healthcare years tukey conf score}
+healthcareyrs_tukey2 <- agricolae::HSD.test(healthcareyrs_anova2, trt = "HealthcareYears")
+
+healthcareyrs_tukey2
+```
+Years in healthcare is not significantly associated with change in confidence score.
+
+---
+
+### FacilitiesNumber
+1. Summary Statistics
+```{r facilities number summary statistics conf score}
+numfacilities_sum_stats2 <- analysis_data %>%
+                              dplyr::group_by(FacilitiesNumber) %>%
+                              rstatix::get_summary_stats(Delta, type = "mean_sd")
+numfacilities_sum_stats2
+```
+
+<br>
+
+2. ANOVA
+```{r facilities number anova conf score}
+numfacilities_anova2 <- stats::aov(Delta ~ FacilitiesNumber, data = analysis_data)
+
+summary(numfacilities_anova2)
+```
+
+<br>
+
+3. ANOVA with Tukey Correction
+```{r facilities number tukey conf score}
+numfacilities_tukey2 <- agricolae::HSD.test(numfacilities_anova2, trt = "FacilitiesNumber")
+
+numfacilities_tukey2
+```
+
+---
+
+## Demographics Table Summary
+The last step is to create a summary table for the demographics variables with both the code identification score and the change in confidence score outcomes.
+```{r demographics summary table}
+#construct table for bivariate analysis of code identification score
+demographics_score <- analysis_data %>%
+                          gtsummary::tbl_continuous(variable = CodeScorePct,
+                                                    include = c(FacilityLabel, 
+                                                                PositionType,
+                                                                ShiftType,
+                                                                FacilityYears,
+                                                                HealthcareYears,
+                                                                FacilitiesNumber),
+                                                    statistic = list(everything() ~ "{mean} ({sd})"),
+                                                    digits = everything() ~ 1) %>%
+                          add_p(test = list(everything() ~ "aov")) %>%
+                          gtsummary::modify_header(stat_0 ~ "**Mean (SD)**") %>%
+                          gtsummary::modify_header(statistic ~ "**F**") %>%
+                          gtsummary::modify_fmt_fun(statistic ~ gtsummary::style_sigfig) %>%
+                          gtsummary::bold_labels() %>%
+                          gtsummary::modify_footnote(stat_0 ~ "Mean (Standard Deviation)")
+
+demographics_score
+
+#construct table for bivariate analysis of confidence score
+demographics_conf <- analysis_data %>%
+                          gtsummary::tbl_continuous(variable = Delta,
+                                                    include = c(FacilityLabel, 
+                                                                PositionType,
+                                                                ShiftType,
+                                                                FacilityYears,
+                                                                HealthcareYears,
+                                                                FacilitiesNumber),
+                                                    statistic = list(everything() ~ "{mean} ({sd})")) %>%
+                          add_p(test = list(everything() ~ "aov")) %>%
+                          gtsummary::modify_header(stat_0 ~ "**Mean (SD)**") %>%
+                          gtsummary::modify_header(statistic ~ "**F**") %>%
+                          gtsummary::modify_fmt_fun(statistic ~ gtsummary::style_sigfig) %>%
+                          gtsummary::bold_labels() %>%
+                          gtsummary::modify_footnote(stat_0 ~ "Mean (Standard Deviation)")
+
+demographics_conf
+
+#construct table for summary numbers
+demographics_count <- analysis_data %>%
+                          gtsummary::select(FacilityLabel,
+                                            PositionType,
+                                            ShiftType,
+                                            FacilityYears,
+                                            HealthcareYears,
+                                            FacilitiesNumber) %>%
+                          gtsummary::tbl_summary() %>%
+                          gtsummary::add_n() %>%
+                          gtsummary::modify_header(stat_0 ~ "**n (%)**") %>%
+                          gtsummary::modify_footnote(stat_0 ~ NA_character_) %>%
+                          gtsummary::bold_labels()
+demographics_count
+
+#merge tables
+demographics_summary <- gtsummary::tbl_merge(list(demographics_count, 
+                                                  demographics_score, 
+                                                  demographics_conf),
+                                             tab_spanner = c(NA_character_, 
+                                                             "**Code Identification Score (%)**", 
+                                                             "**Change in Confidence Score**")) %>%
+  
+                        gtsummary::modify_column_hide(n_1) %>%
+                        gtsummary::modify_caption("Table 3. Results of demographic characteristics bivariate analyses with code identification score and change in confidence score (N = 304).") %>%
+                        gtsummary::modify_header(label ~ " ")
+demographics_summary
+```
+
+### Save Summary Table
+```{r save table}
+demographics_summary_file = here::here("results", "demographics_summary_table.Rds")
+
+saveRDS(demographics_summary, file = demographics_summary_file)
+```
