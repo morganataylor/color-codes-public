@@ -11,6 +11,7 @@ This folder also contains two other reference dataframes:
 * `answerkey.csv`: the code types and identifications according to each facility's EOP
 * `colnames.xlsx`: a dataframe with new column names (used in the data cleaning process)
 * `codekey.csv`: contains the codes for each emergency
+* `Breaking_the_Code_Survey.pdf`: the survey used in the study
 
 ## Graded Data
 
